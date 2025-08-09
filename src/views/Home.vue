@@ -58,6 +58,19 @@
           <el-icon><Connection /></el-icon>
           {{ showWorkflowModal ? '取消工作流' : '新建工作流' }}
         </el-button>
+        
+        <!-- 设置按钮 (固定在右上角) -->
+        <div class="settings-wrapper">
+          <el-tooltip content="应用设置" placement="bottom">
+            <el-button
+              :icon="Setting"
+              circle
+              class="settings-btn"
+              type="default"
+              @click="handleOpenSettings"
+            />
+          </el-tooltip>
+        </div>
       </div>
     </div>
 
@@ -247,12 +260,17 @@
       v-model="showCopyModal"
       :command="copyCommand"
     />
+
+    <!-- 设置模态框 -->
+    <SettingsModal
+      v-model="showSettings"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue'
-import { FolderOpened, Search, Clock, Delete, Plus, DocumentAdd, Tools, Connection, RefreshLeft } from '@element-plus/icons-vue'
+import { FolderOpened, Search, Clock, Delete, Plus, DocumentAdd, Tools, Connection, RefreshLeft, Setting, View } from '@element-plus/icons-vue'
 import CommandCard from '../components/CommandCard.vue'
 import CommandDetailModal from '../components/CommandDetailModal.vue'
 import CommandBuilderModal from '../components/CommandBuilderModal.vue'
@@ -263,6 +281,7 @@ import ParameterModal from '../components/ParameterModal.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import BatchMigrateModal from '../components/BatchMigrateModal.vue'
 import CopyCommandModal from '../components/CopyCommandModal.vue'
+import SettingsModal from '../components/SettingsModal.vue'
 
 import { useCommandStore } from '../stores/command'
 import { useKeyboardStore } from '../stores/keyboard'
@@ -280,6 +299,7 @@ const showBuilderModal = ref(false)
 const showBatchMigrateModal = ref(false)
 const showCopyModal = ref(false)
 const copyCommand = ref(null)
+const showSettings = ref(false)
 const showAddModal = ref(false)
 const showBatchCreateModal = ref(false)
 const showWorkflowModal = ref(false)
@@ -560,6 +580,11 @@ const handleManageCopy = (command) => {
   showCopyModal.value = true
 }
 
+// 处理设置
+const handleOpenSettings = () => {
+  showSettings.value = true
+}
+
 // 详情模态框事件处理
 const handleDetailEdit = (command) => {
   editingCommand.value = command
@@ -754,6 +779,22 @@ onUnmounted(() => {
     display: flex;
     gap: var(--el-spacing-sm);
     flex-wrap: wrap;
+    align-items: center;
+  }
+  
+  .settings-wrapper {
+    margin-left: auto;
+    padding-left: 16px;
+  }
+  
+  .settings-btn {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--el-color-primary-light-5);
+  }
+  
+  .settings-btn:hover {
+    border-color: var(--el-color-primary);
+    background-color: var(--el-color-primary-light-9);
   }
 }
 

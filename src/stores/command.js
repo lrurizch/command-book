@@ -80,6 +80,17 @@ export const useCommandStore = defineStore('command', () => {
   const autoUpdateCopyCommand = ref({}) // { commandId: boolean }
   const frequentCommands = ref({}) // { commandId: [fullCommand1, fullCommand2, ...] }
   
+  // 显示设置
+  const displaySettings = ref({
+    showCommandName: true,        // 显示命令名称
+    showDescription: true,        // 显示描述
+    showCategory: false,          // 显示分类
+    showTags: false,              // 显示标签
+    showUsageStats: false,        // 显示使用统计
+    showParameters: false,        // 显示参数信息
+    compactMode: false            // 紧凑模式
+  })
+  
   // ===== 预计算的分类索引 =====
   const categoryIndex = ref(new Map())
   
@@ -206,8 +217,7 @@ export const useCommandStore = defineStore('command', () => {
     }
     
     // 否则使用最近的构建命令
-    const buildHistory = JSON.parse(localStorage.getItem('command-build-history') || '[]')
-    const recentBuild = buildHistory
+    const recentBuild = buildHistory.value
       .filter(item => item.templateId === commandId)
       .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
     
@@ -252,6 +262,23 @@ export const useCommandStore = defineStore('command', () => {
    */
   const getFrequentCommands = (commandId) => {
     return frequentCommands.value[commandId] || []
+  }
+  
+  /**
+   * 更新显示设置
+   * @param {Object} settings 新的显示设置
+   */
+  const updateDisplaySettings = (settings) => {
+    displaySettings.value = { ...displaySettings.value, ...settings }
+    saveToStorage()
+  }
+  
+  /**
+   * 获取显示设置
+   * @returns {Object} 当前显示设置
+   */
+  const getDisplaySettings = () => {
+    return displaySettings.value
   }
 
   /**
@@ -1142,6 +1169,11 @@ export const useCommandStore = defineStore('command', () => {
     setAutoUpdateCopyCommand,
     addFrequentCommand,
     getFrequentCommands,
+    
+    // 显示设置
+    displaySettings,
+    updateDisplaySettings,
+    getDisplaySettings,
     
     // 工具方法
     generateId,

@@ -5,52 +5,76 @@
     @click="handleCopyRecentCommand"
     @dblclick.stop="handleBuild"
   >
-    <!-- 新的水平布局：从左到右 -->
-    <div class="card-content">
-      <!-- 最近使用的完整命令 (左侧，占主要空间) -->
-      <div class="recent-command-section">
-        <div class="command-name">
+    <!-- 简化的命令卡片布局 -->
+    <div class="card-content" :class="{ 'compact-mode': displaySettings.compactMode }">
+      <!-- 主要内容区域 -->
+      <div class="main-content">
+        <!-- 命令名称 (可选显示) -->
+        <div v-if="displaySettings.showCommandName" class="command-name">
           {{ command.name }}
           <el-tag v-if="command.isUserCreated" size="small" type="warning">自定义</el-tag>
         </div>
-        <div class="recent-command">
+        
+        <!-- 完整命令 (始终显示) -->
+        <div class="command-display">
           <el-tooltip :content="recentCommandText" placement="top" :disabled="!recentCommandText">
             <code class="command-text">{{ displayRecentCommand }}</code>
           </el-tooltip>
         </div>
-        <div class="command-desc">{{ command.description }}</div>
+        
+        <!-- 描述 (可选显示) -->
+        <div v-if="displaySettings.showDescription" class="command-desc">
+          {{ command.description }}
+        </div>
       </div>
       
-      <!-- 分类 (中左) -->
-      <div class="category-section">
-        <el-tag type="info" size="small">
-          {{ categoryName }}
-        </el-tag>
+      <!-- 可选信息区域 -->
+      <div v-if="hasOptionalInfo" class="optional-info">
+        <!-- 分类 -->
+        <div v-if="displaySettings.showCategory" class="info-item">
+          <el-tag type="info" size="small">{{ categoryName }}</el-tag>
+        </div>
+        
+        <!-- 标签 -->
+        <div v-if="displaySettings.showTags" class="info-item tags-container">
+          <el-tag 
+            v-for="tag in displayTags" 
+            :key="tag" 
+            size="small"
+            class="tag-item"
+          >
+            {{ tag }}
+          </el-tag>
+          <el-tag 
+            v-if="extraTagsCount > 0" 
+            size="small" 
+            type="info"
+            class="tag-item"
+          >
+            +{{ extraTagsCount }}
+          </el-tag>
+        </div>
+        
+        <!-- 使用统计 -->
+        <div v-if="displaySettings.showUsageStats && command.usageCount" class="info-item">
+          <span class="usage-stats">
+            <el-icon><TrendCharts /></el-icon>
+            使用 {{ command.usageCount }} 次
+          </span>
+        </div>
+        
+        <!-- 参数信息 -->
+        <div v-if="displaySettings.showParameters && hasParameters" class="info-item">
+          <span class="parameter-info">
+            <el-icon><Grid /></el-icon>
+            {{ parameterCount }} 个参数
+          </span>
+        </div>
       </div>
       
-      <!-- 标签 (中右) -->
-      <div class="tags-section">
-        <el-tag 
-          v-for="tag in displayTags" 
-          :key="tag" 
-          size="small"
-          class="tag-item"
-        >
-          {{ tag }}
-        </el-tag>
-        <el-tag 
-          v-if="extraTagsCount > 0" 
-          size="small" 
-          type="info"
-          class="tag-item"
-        >
-          +{{ extraTagsCount }}
-        </el-tag>
-      </div>
-      
-      <!-- 操作按钮 (最右侧) -->
+      <!-- 操作按钮 -->
       <div class="actions-section">
-        <el-tooltip content="单击复制最近命令，双击进入构建器" placement="top">
+        <el-tooltip content="复制命令" placement="top">
           <el-button :icon="CopyDocument" size="small" circle @click.stop="handleCopyRecentCommand" />
         </el-tooltip>
         
@@ -100,7 +124,9 @@ import {
   CaretRight, 
   DocumentCopy, 
   Delete,
-  Setting 
+  Setting,
+  TrendCharts,
+  Grid
 } from '@element-plus/icons-vue'
 
 // Props
@@ -117,8 +143,16 @@ const emit = defineEmits(['copy', 'execute', 'build', 'detail', 'edit', 'delete'
 // Store
 const commandStore = useCommandStore()
 
+// 显示设置
+const displaySettings = computed(() => commandStore.displaySettings)
+
 // 获取默认复制的完整命令
 const recentCommandText = computed(() => {
+  // 如果没有命令数据，返回空
+  if (!props.command) {
+    return '暂无命令'
+  }
+  
   // 优先使用用户手动设置的默认复制命令
   const defaultCopy = commandStore.getDefaultCopyCommand(props.command.id)
   if (defaultCopy) {
@@ -131,8 +165,8 @@ const recentCommandText = computed(() => {
     .filter(item => item.templateId === props.command.id)
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
   
-  // 确保返回有效的命令文本
-  return recentBuild?.finalCommand || props.command?.command || '暂无命令'
+  // 最后回退到原始命令模板
+  return recentBuild?.finalCommand || props.command.command || '暂无命令'
 })
 
 // 显示的最近命令（截断长命令）
@@ -157,6 +191,30 @@ const displayTags = computed(() => {
 const extraTagsCount = computed(() => {
   const totalTags = props.command.tags?.length || 0
   return Math.max(0, totalTags - 3)
+})
+
+// 是否有可选信息需要显示
+const hasOptionalInfo = computed(() => {
+  return displaySettings.value.showCategory ||
+         displaySettings.value.showTags ||
+         (displaySettings.value.showUsageStats && props.command.usageCount) ||
+         (displaySettings.value.showParameters && hasParameters.value)
+})
+
+// 是否有参数
+const hasParameters = computed(() => {
+  return props.command.parameters?.length > 0 || 
+         (props.command.command && props.command.command.includes('{{'))
+})
+
+// 参数数量
+const parameterCount = computed(() => {
+  if (props.command.parameters?.length) {
+    return props.command.parameters.length
+  }
+  // 如果没有参数定义，从命令中统计占位符数量
+  const matches = props.command.command?.match(/\{\{[^}]+\}\}/g) || []
+  return matches.length
 })
 
 // 事件处理器
@@ -217,14 +275,17 @@ const handleManageCopy = () => {
 
 .card-content {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* 最近命令区域 (左侧，主要空间) */
-.recent-command-section {
+.card-content.compact-mode {
+  gap: 8px;
+}
+
+/* 主要内容区域 */
+.main-content {
   flex: 1;
-  min-width: 0; /* 允许内容收缩 */
 }
 
 .command-name {
@@ -237,7 +298,12 @@ const handleManageCopy = () => {
   gap: 8px;
 }
 
-.recent-command {
+.compact-mode .command-name {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.command-display {
   margin-bottom: 6px;
 }
 
@@ -245,82 +311,83 @@ const handleManageCopy = () => {
   background: var(--el-fill-color-light);
   border: 1px solid var(--el-border-color-lighter);
   border-radius: 4px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  color: var(--el-text-color-regular);
+  font-size: 14px;
+  color: var(--el-text-color-primary);
   display: block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  line-height: 1.4;
+}
+
+.compact-mode .command-text {
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
 .command-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--el-text-color-secondary);
   line-height: 1.4;
 }
 
-/* 分类区域 (中左) */
-.category-section {
-  flex-shrink: 0;
-  min-width: 80px;
+.compact-mode .command-desc {
+  font-size: 12px;
 }
 
-/* 标签区域 (中右) */
-.tags-section {
-  flex-shrink: 0;
+/* 可选信息区域 */
+.optional-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tags-container {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  min-width: 120px;
-  max-width: 200px;
 }
 
 .tag-item {
   margin: 0;
 }
 
-/* 操作按钮区域 (最右侧) */
+.usage-stats,
+.parameter-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+/* 操作按钮区域 */
 .actions-section {
-  flex-shrink: 0;
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
+  margin-top: auto;
 }
 
 /* 响应式设计 */
-@media (max-width: 1200px) {
-  .tags-section {
-    max-width: 150px;
-  }
-}
-
-@media (max-width: 900px) {
-  .card-content {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .recent-command-section {
-    order: 1;
-  }
-  
-  .category-section {
-    order: 2;
-    align-self: flex-start;
-  }
-  
-  .tags-section {
-    order: 3;
-    max-width: none;
+@media (max-width: 768px) {
+  .command-text {
+    font-size: 13px;
   }
   
   .actions-section {
-    order: 4;
-    justify-content: flex-end;
+    justify-content: center;
   }
 }
 </style> 
