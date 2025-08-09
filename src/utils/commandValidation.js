@@ -607,7 +607,35 @@ export class CommandCreationValidator extends CommandValidator {
       if (option.hasValue && !option.valueType) {
         this.addWarning(`options[${index}].valueType`, '带值选项应指定值类型')
       }
+
+      // 验证选项类型
+      if (option.type && !['required', 'optional'].includes(option.type)) {
+        this.addError(`options[${index}].type`, `无效的选项类型: ${option.type}`)
+      }
     })
+
+    // 验证互斥组
+    if (commandData.mutexGroups && Array.isArray(commandData.mutexGroups)) {
+      commandData.mutexGroups.forEach((group, groupIndex) => {
+        if (!group.optionIndexes || !Array.isArray(group.optionIndexes)) {
+          this.addError(`mutexGroups[${groupIndex}].optionIndexes`, '互斥组必须包含选项索引数组')
+        } else if (group.optionIndexes.length !== 2) {
+          this.addError(`mutexGroups[${groupIndex}].optionIndexes`, '互斥组必须包含且仅包含2个选项')
+        } else {
+          // 验证选项索引的有效性
+          group.optionIndexes.forEach(optionIndex => {
+            if (optionIndex < 0 || optionIndex >= commandData.options.length) {
+              this.addError(`mutexGroups[${groupIndex}].optionIndexes`, `无效的选项索引: ${optionIndex}`)
+            } else {
+              const option = commandData.options[optionIndex]
+              if (option.type !== 'optional') {
+                this.addError(`mutexGroups[${groupIndex}].optionIndexes`, '互斥组只能包含可选选项')
+              }
+            }
+          })
+        }
+      })
+    }
   }
 
   /**

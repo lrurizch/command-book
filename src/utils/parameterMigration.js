@@ -6,8 +6,7 @@
 // 参数类型枚举
 export const ParameterType = {
   REQUIRED: 'required',     // 必选参数
-  OPTIONAL: 'optional',     // 可选参数  
-  DISABLED: 'disabled'      // 不可选参数（禁止使用）
+  OPTIONAL: 'optional'      // 可选参数  
 }
 
 /**
@@ -132,8 +131,8 @@ export function getParameterTypeLabel(type) {
       return '必选'
     case ParameterType.OPTIONAL:
       return '可选'
-    case ParameterType.DISABLED:
-      return '不可选'
+    case ParameterType.MUTEX:
+      return '互斥'
     default:
       return '未知'
   }

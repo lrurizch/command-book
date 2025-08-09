@@ -364,6 +364,7 @@
               </el-button>
             </div>
           </div>
+          <div class="option-buttons">
           <el-button
             type="primary"
             text
@@ -372,6 +373,17 @@
           >
             + 添加选项
           </el-button>
+            <el-button
+              type="warning"
+              text
+              @click="addMutexOptionPair"
+              icon="Switch"
+              :disabled="availableOptionsForMutex.length < 2"
+              :title="availableOptionsForMutex.length < 2 ? '至少需要两个选项才能设置互斥关系' : '从已有选项中设置互斥关系'"
+            >
+              设置互斥选项
+            </el-button>
+          </div>
         </div>
         <!-- 显示原始选项对比 -->
         <div v-if="isEditing && getFieldChanges().options" class="comparison-info">
@@ -611,108 +623,211 @@
         </h3>
         <p class="section-description">配置命令的选项，如 -v, --verbose, --port 等</p>
         
+        <!-- 普通选项列表 -->
+        <div v-if="regularOptions.length > 0" class="regular-options-section">
+          <h4 class="subsection-title">普通选项</h4>
         <div class="options-list">
           <el-card
-            v-for="(option, index) in form.options"
-            :key="`option-${index}`"
-            class="option-item"
-          >
+              v-for="option in regularOptions"
+              :key="`regular-option-${option.originalIndex}`"
+              class="option-item regular-option"
+            >
+            <div class="option-display">
             <div class="option-header">
-              <div class="option-name-inputs">
-                <el-input
-                  v-model="option.shortName"
-                  placeholder="短选项 (如: -v)"
-                  class="option-short-input"
-                />
-                <el-input
-                  v-model="option.longName"
-                  placeholder="长选项 (如: --verbose)"
-                  class="option-long-input"
-                />
+                <div class="option-names">
+                  <span v-if="option.shortName" class="short-name">-{{ option.shortName }}</span>
+                  <span v-if="option.longName" class="long-name">--{{ option.longName }}</span>
+                  <el-tag 
+                    :type="option.type === ParameterType.REQUIRED ? 'danger' : 'info'" 
+                    size="small"
+                  >
+                    {{ option.type === ParameterType.REQUIRED ? '必选' : '可选' }}
+                  </el-tag>
+                  <el-tag 
+                    :type="getValueTypeTagType(option)" 
+                    size="small"
+                  >
+                    {{ getValueTypeLabel(option) }}
+                  </el-tag>
               </div>
+                <div class="option-actions">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="editOption(option.originalIndex)"
+                    icon="Edit"
+                  >
+                    编辑
+                  </el-button>
               <el-button
                 type="danger"
                 size="small"
-                @click="removeOption(index)"
+                    @click="removeOption(option.originalIndex)"
+                    icon="Delete"
               >
                 删除
               </el-button>
+                </div>
             </div>
             
-            <div class="option-body">
-              <div class="form-group">
-                <label class="form-label">描述</label>
-                <el-input
-                  v-model="option.description"
-                  placeholder="选项描述"
-                />
+              <div class="option-description">
+                {{ option.description || '暂无描述' }}
+                <span v-if="(option.valueType === ParameterValueType.REQUIRED || option.valueType === ParameterValueType.OPTIONAL) && option.defaultValue" class="default-value-info">
+                  （默认值：{{ option.defaultValue }}）
+                </span>
               </div>
               
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">选项类型</label>
-                  <el-radio-group v-model="option.type">
-                    <el-radio :value="ParameterType.REQUIRED">必选选项</el-radio>
-                    <el-radio :value="ParameterType.OPTIONAL">可选选项</el-radio>
-                    <el-radio :value="ParameterType.DISABLED">不可选选项</el-radio>
-                  </el-radio-group>
-                </div>
-                <div class="form-group">
-                  <el-checkbox v-model="option.hasValue">
-                    需要参数值
-                  </el-checkbox>
-                </div>
-              </div>
-              
-              <!-- 选项参数设置 -->
-              <div v-if="option.hasValue" class="option-parameters">
-                <label class="form-label">选项参数</label>
-                <div class="option-param-list">
-                  <div
-                    v-for="(param, paramIndex) in option.parameters"
-                    :key="`option-${index}-param-${paramIndex}`"
-                    class="option-param-item"
+              <div v-if="shouldShowParametersForOption(option)" class="option-params">
+                <label class="params-label">参数：</label>
+                <span class="params-list">
+                  <span 
+                    v-for="(param, paramIndex) in option.parameters" 
+                    :key="paramIndex"
+                    class="param-tag"
                   >
-                    <el-input
-                      v-model="param.name"
-                      placeholder="参数名"
-                      class="option-param-name"
-                    />
-                    <el-input
-                      v-model="param.description"
-                      placeholder="参数描述"
-                      class="option-param-desc"
-                    />
-                    <el-select v-model="param.type" class="option-param-type" placeholder="类型">
-                      <el-option :value="ParameterType.REQUIRED" label="必选"></el-option>
-                      <el-option :value="ParameterType.OPTIONAL" label="可选"></el-option>
-                      <el-option :value="ParameterType.DISABLED" label="不可选"></el-option>
-                    </el-select>
+                    {{ param.name }}
+                    <el-tag 
+                      v-if="isDefaultParam(param, paramIndex, option)" 
+                      type="success" 
+                      size="small"
+                      class="default-tag"
+                    >
+                      默认
+                    </el-tag>
+                  </span>
+                </span>
+                </div>
+            </div>
+          </el-card>
+                </div>
+              </div>
+              
+        <!-- 互斥选项组列表 -->
+        <div v-if="mutexGroupsDisplay.length > 0" class="mutex-options-section">
+          <h4 class="subsection-title">互斥选项组</h4>
+          <div class="mutex-groups-list">
+            <el-card
+              v-for="group in mutexGroupsDisplay"
+              :key="`mutex-group-${group.id}`"
+              class="mutex-group-item"
+            >
+              <div class="mutex-group-header">
+                <h5>{{ group.name }}</h5>
                     <el-button
                       type="danger"
                       size="small"
-                      @click="removeOptionParameter(index, paramIndex)"
+                  @click="removeMutexGroup(group.groupIndex)"
+                  title="删除整个互斥组"
                     >
-                      删除
+                  删除互斥组
                     </el-button>
                   </div>
+              
+              <div class="mutex-options-row">
+                <div 
+                  v-for="(option, optionIndex) in group.options" 
+                  :key="`mutex-option-${option.originalIndex}`"
+                  class="mutex-option-item"
+                >
+                  <div class="option-display">
+                    <div class="option-header">
+                      <div class="option-names">
+                        <span v-if="option.shortName" class="short-name">-{{ option.shortName }}</span>
+                        <span v-if="option.longName" class="long-name">--{{ option.longName }}</span>
+                        <el-tag 
+                          :type="option.type === ParameterType.REQUIRED ? 'danger' : 'info'" 
+                          size="small"
+                        >
+                          {{ option.type === ParameterType.REQUIRED ? '必选' : '可选' }}
+                        </el-tag>
+                        <el-tag 
+                          :type="getValueTypeTagType(option)" 
+                          size="small"
+                        >
+                          {{ getValueTypeLabel(option) }}
+                        </el-tag>
+                      </div>
+                      <div class="option-actions">
                   <el-button
+                          type="primary"
                     size="small"
-                    @click="addOptionParameter(index)"
+                          @click="editOption(option.originalIndex)"
+                          icon="Edit"
                   >
-                    + 添加选项参数
+                          编辑
                   </el-button>
+                      </div>
+                    </div>
+                    
+                    <div class="option-description">
+                      {{ option.description || '暂无描述' }}
+                      <span v-if="(option.valueType === ParameterValueType.REQUIRED || option.valueType === ParameterValueType.OPTIONAL) && option.defaultValue" class="default-value-info">
+                        （默认值：{{ option.defaultValue }}）
+                      </span>
+                    </div>
+                    
+                    <div v-if="shouldShowParametersForOption(option)" class="option-params">
+                      <label class="params-label">参数：</label>
+                      <span class="params-list">
+                        <span 
+                          v-for="(param, paramIndex) in option.parameters" 
+                          :key="paramIndex"
+                          class="param-tag"
+                        >
+                          {{ param.name }}
+                          <el-tag 
+                            v-if="isDefaultParam(param, paramIndex, option)" 
+                            type="success" 
+                            size="small"
+                            class="default-tag"
+                          >
+                            默认
+                          </el-tag>
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div v-if="optionIndex < group.options.length - 1" class="mutex-separator">
+                    <span class="mutex-vs">VS</span>
                 </div>
               </div>
             </div>
           </el-card>
+          </div>
+        </div>
           
+        <!-- 添加选项按钮区域 -->
+        <div class="option-buttons-section">
+          <div class="option-buttons">
           <el-button
             class="add-option-btn"
             @click="addOption"
           >
             + 添加选项
           </el-button>
+            <el-button
+              class="add-mutex-option-btn"
+              type="warning"
+              @click="addMutexOptionPair"
+              :disabled="availableOptionsForMutex.length < 2"
+              :title="availableOptionsForMutex.length < 2 ? '至少需要两个选项才能设置互斥关系' : '从已有选项中设置互斥关系'"
+            >
+              设置互斥选项
+            </el-button>
+          </div>
+        </div>
+        
+        <!-- 选项验证提示 -->
+        <div v-if="form.options.length > 0" class="options-validation">
+          <div v-for="validation in optionValidations" :key="validation.type" class="validation-message" :class="validation.level">
+            <el-icon>
+              <WarningFilled v-if="validation.level === 'warning'" />
+              <InfoFilled v-if="validation.level === 'info'" />
+              <CircleCloseFilled v-if="validation.level === 'error'" />
+            </el-icon>
+            <span>{{ validation.message }}</span>
+          </div>
         </div>
         
         <!-- 显示原始选项对比 -->
@@ -804,12 +919,13 @@
                 </div>
                 
                 <div class="form-group">
-                  <label class="form-label">参数类型</label>
-                  <el-radio-group v-model="param.type">
-                    <el-radio :value="ParameterType.REQUIRED">必选参数</el-radio>
-                    <el-radio :value="ParameterType.OPTIONAL">可选参数</el-radio>
-                    <el-radio :value="ParameterType.DISABLED">不可选参数</el-radio>
-                  </el-radio-group>
+                  <el-radio 
+                    v-model="defaultCommandParam"
+                    :value="index"
+                    class="param-default-checkbox"
+                  >
+                    默认参数
+                  </el-radio>
                 </div>
               </div>
             </div>
@@ -926,12 +1042,280 @@
       </span>
     </template>
   </el-dialog>
+
+  
+
+  <!-- 互斥选项配对对话框 -->
+  <el-dialog
+    v-model="showMutexOptionDialog"
+    title="创建互斥选项对"
+    width="500px"
+  >
+    <div class="mutex-pairing-selection">
+      <p>从已有选项中选择两个选项设置为互斥：</p>
+      <div v-if="availableOptionsForMutex.length < 2" class="no-options-warning">
+        <el-alert
+          title="选项不足"
+          description="至少需要两个已创建的非互斥选项才能设置互斥关系"
+          type="warning"
+          show-icon
+          :closable="false"
+        />
+      </div>
+      <div v-else class="mutex-selection-form">
+        <div class="form-group">
+          <label>选择第一个选项：</label>
+          <el-select v-model="selectedOption1" placeholder="请选择选项">
+            <el-option
+              v-for="option in availableOptionsForMutex"
+              :key="option.index"
+              :value="option.index.toString()"
+              :label="`${option.shortName ? '-' + option.shortName : option.longName ? '--' + option.longName : ''} - ${option.description || '无描述'}`"
+            />
+          </el-select>
+        </div>
+        <div class="form-group">
+          <label>选择第二个选项：</label>
+          <el-select v-model="selectedOption2" placeholder="请选择选项">
+            <el-option
+              v-for="option in availableOptionsForMutex"
+              :key="option.index"
+              :value="option.index.toString()"
+              :label="`${option.shortName ? '-' + option.shortName : option.longName ? '--' + option.longName : ''} - ${option.description || '无描述'}`"
+              :disabled="option.index.toString() === selectedOption1"
+            />
+          </el-select>
+        </div>
+      </div>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showMutexOptionDialog = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="confirmMutexPairing"
+          :disabled="availableOptionsForMutex.length < 2 || !selectedOption1 || !selectedOption2"
+        >
+          确认创建互斥对
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <!-- 添加选项设置对话框 -->
+  <el-dialog
+    v-model="showAddOptionDialog"
+    :title="currentEditingIndex !== -1 ? '编辑选项' : '添加选项'"
+    width="700px"
+  >
+    <div class="add-option-form">
+      <div class="form-section">
+        <h4>基本信息</h4>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">短选项名</label>
+            <div class="option-name-input">
+              <span class="option-prefix">-</span>
+              <el-input
+                v-model="newOptionForm.shortName"
+                placeholder="如: h, v, f"
+                clearable
+                maxlength="1"
+                show-word-limit
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">长选项名</label>
+            <div class="option-name-input">
+              <span class="option-prefix">--</span>
+              <el-input
+                v-model="newOptionForm.longName"
+                placeholder="如: help, version, file"
+                clearable
+                maxlength="20"
+              />
+            </div>
+            <div v-if="!newOptionForm.shortName && !newOptionForm.longName" class="validation-hint">
+              <span class="hint-text">请至少填写短选项名或长选项名中的一个</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">选项描述 *</label>
+          <el-input
+            v-model="newOptionForm.description"
+            placeholder="详细描述这个选项的作用"
+            maxlength="100"
+          />
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">选项类型</label>
+            <el-radio-group v-model="newOptionForm.type">
+              <el-radio :value="ParameterType.REQUIRED">必选选项</el-radio>
+              <el-radio :value="ParameterType.OPTIONAL">可选选项</el-radio>
+            </el-radio-group>
+          </div>
+          <div class="form-group">
+            <label class="form-label">参数类型</label>
+            <el-radio-group v-model="newOptionForm.valueType">
+              <el-radio :value="ParameterValueType.REQUIRED">必带参数</el-radio>
+              <el-radio :value="ParameterValueType.OPTIONAL">可选参数</el-radio>
+              <el-radio :value="ParameterValueType.NONE">不可带参数</el-radio>
+            </el-radio-group>
+            
+            <!-- 参数默认值设置 -->
+            <div v-if="newOptionForm.valueType === ParameterValueType.REQUIRED || newOptionForm.valueType === ParameterValueType.OPTIONAL" class="default-value-setting">
+              <label class="form-label">默认值</label>
+              <el-input
+                v-model="newOptionForm.defaultValue"
+                :placeholder="newOptionForm.valueType === ParameterValueType.OPTIONAL ? '不带参数时的默认值' : '参数的默认值'"
+                clearable
+              />
+              <span class="form-help">
+                {{ newOptionForm.valueType === ParameterValueType.OPTIONAL ? '当选项不带参数时使用此默认值' : '参数的默认值' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 参数配置区域 -->
+      <div v-if="shouldShowParameterConfig" class="form-section">
+        <div class="section-header">
+          <h4>参数配置</h4>
+          <el-button 
+            size="small" 
+            type="primary" 
+            @click="showCommonParamsModal()"
+            icon="Plus"
+          >
+            添加常用参数
+          </el-button>
+        </div>
+        
+        <div v-if="newOptionForm.parameters.length === 0" class="empty-params">
+          <p>暂无参数，点击上方"添加常用参数"快速添加，或手动添加参数</p>
+        </div>
+        
+        <div v-else class="params-list">
+          <div
+            v-for="(param, index) in newOptionForm.parameters"
+            :key="`new-param-${index}`"
+            class="param-item"
+          >
+            <el-input
+              v-model="param.name"
+              placeholder="参数名"
+              class="param-name"
+            />
+            <el-input
+              v-model="param.description"
+              placeholder="参数描述"
+              class="param-desc"
+            />
+            <el-radio 
+              v-model="defaultOptionParam" 
+              :value="index"
+              class="param-default"
+            >
+              默认参数
+            </el-radio>
+            <el-button
+              type="danger"
+              size="small"
+              @click="removeNewOptionParameter(index)"
+              icon="Delete"
+            >
+            </el-button>
+          </div>
+        </div>
+        
+        <el-button
+          size="small"
+          @click="addNewOptionParameter"
+          icon="Plus"
+        >
+          手动添加参数
+        </el-button>
+      </div>
+    </div>
+    
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showAddOptionDialog = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="confirmAddOption"
+        >
+          {{ currentEditingIndex !== -1 ? '确认更新' : '确认添加' }}
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <!-- 常用参数选择对话框 -->
+  <el-dialog
+    v-model="showCommonParamsDialog"
+    title="选择常用参数"
+    width="600px"
+  >
+    <div class="common-params-selection">
+      <p>从下面的常用参数模板中选择要添加的参数：</p>
+      
+      <div class="params-categories">
+        <div 
+          v-for="(params, category) in groupedCommonParams" 
+          :key="category"
+          class="param-category"
+        >
+          <h4 class="category-title">{{ category }}</h4>
+          <div class="params-grid">
+            <el-checkbox-group v-model="selectedCommonParams">
+              <el-checkbox 
+                v-for="param in params" 
+                :key="param.index"
+                :value="param.index"
+                class="param-checkbox"
+              >
+                <div class="param-item">
+                  <strong>{{ param.name }}</strong>
+                  <span class="param-desc">{{ param.description }}</span>
+                  <el-tag 
+                    :type="param.type === ParameterType.REQUIRED ? 'danger' : 'info'" 
+                    size="small"
+                  >
+                    {{ param.type === ParameterType.REQUIRED ? '必选' : '可选' }}
+                  </el-tag>
+                </div>
+              </el-checkbox>
+            </el-checkbox-group>
+          </div>
+        </div>
+      </div>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showCommonParamsDialog = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="confirmAddCommonParams"
+          :disabled="selectedCommonParams.length === 0"
+        >
+          添加选中参数 ({{ selectedCommonParams.length }})
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { InfoFilled, SuccessFilled, WarningFilled, Plus, FolderAdd } from '@element-plus/icons-vue'
+import { InfoFilled, SuccessFilled, WarningFilled, Plus, FolderAdd, CircleCloseFilled } from '@element-plus/icons-vue'
 import { useCommandStore } from '../stores/command'
 import { showSaveSuccess } from '../utils/toast'
 
@@ -953,8 +1337,7 @@ const commandStore = useCommandStore()
 // 参数类型枚举
 const ParameterType = {
   REQUIRED: 'required',     // 必选参数
-  OPTIONAL: 'optional',     // 可选参数  
-  DISABLED: 'disabled'      // 不可选参数（禁止使用）
+  OPTIONAL: 'optional'      // 可选参数  
 }
 
 const dialogVisible = computed({
@@ -963,6 +1346,81 @@ const dialogVisible = computed({
 })
 
 const isEditing = computed(() => !!props.editingCommand)
+
+// 选项验证逻辑
+const optionValidations = computed(() => {
+  const validations = []
+  
+  if (form.value.options.length === 0) {
+    return validations
+  }
+  
+  const requiredOptions = form.value.options.filter(opt => opt.type === ParameterType.REQUIRED)
+  const optionalOptions = form.value.options.filter(opt => opt.type === ParameterType.OPTIONAL)
+  const otherOptions = form.value.options.filter(opt => 
+    ![ParameterType.REQUIRED, ParameterType.OPTIONAL].includes(opt.type)
+  )
+  
+  // 检查是否有无效的选项类型
+  if (otherOptions.length > 0) {
+    validations.push({
+      type: 'invalid_type',
+      level: 'error',
+      message: `发现 ${otherOptions.length} 个无效选项类型，请检查选项配置`
+    })
+  }
+  
+  // 检查是否没有必选选项
+  if (requiredOptions.length === 0) {
+    validations.push({
+      type: 'no_required',
+      level: 'warning',
+      message: '当前命令没有必选选项，建议至少设置一个必选选项以确保命令正确性'
+    })
+  }
+  
+  // 检查互斥组的完整性
+  if (form.value.mutexGroups && form.value.mutexGroups.length > 0) {
+    form.value.mutexGroups.forEach((group, index) => {
+      if (group.optionIndexes.length !== 2) {
+      validations.push({
+          type: 'invalid_mutex_group',
+          level: 'error',
+          message: `${group.name}选项数量异常，互斥组必须包含且仅包含2个选项`
+      })
+    } else {
+        // 检查选项是否都是可选类型
+        const invalidOptions = group.optionIndexes.filter(idx => {
+          const option = form.value.options[idx]
+          return !option || option.type !== ParameterType.OPTIONAL
+        })
+        
+        if (invalidOptions.length > 0) {
+      validations.push({
+            type: 'mutex_non_optional',
+            level: 'error',
+            message: `${group.name}包含非可选选项，互斥组只能包含可选选项`
+          })
+        } else {
+          // 正常的互斥组
+          const option1 = form.value.options[group.optionIndexes[0]]
+          const option2 = form.value.options[group.optionIndexes[1]]
+          const name1 = option1.shortName || option1.longName || '未命名'
+          const name2 = option2.shortName || option2.longName || '未命名'
+          
+    validations.push({
+            type: 'valid_mutex_group',
+      level: 'info',
+            message: `${group.name}：${name1} ⇄ ${name2}，这两个选项不能同时使用`
+          })
+        }
+      }
+    })
+  }
+
+  
+  return validations
+})
 
 // 父分类选择选项（包含所有分类，排除系统分类）
 const parentCategoryOptions = computed(() => {
@@ -1061,6 +1519,7 @@ const form = ref({
   tags: [],
   parameters: [],
   options: [], // 命令选项
+  mutexGroups: [], // 互斥选项组
   commonParameters: [], // 常用参数
   commonCommands: [], // 常用完整命令
   separators: [] // 分隔符/运算符
@@ -1117,13 +1576,20 @@ const addCustomParameter = () => {
   form.value.parameters.push({
     name: '',
     description: '',
-    type: ParameterType.OPTIONAL,
     defaultValue: ''
   })
 }
 
 const removeParameter = (index) => {
   form.value.parameters.splice(index, 1)
+  
+  // 更新默认参数选择
+  if (defaultCommandParam.value === index) {
+    defaultCommandParam.value = null
+  } else if (defaultCommandParam.value > index) {
+    defaultCommandParam.value -= 1
+  }
+  
   analyzeCommand() // 重新分析以更新检测到的参数
 }
 
@@ -1220,7 +1686,10 @@ const saveCommand = async () => {
     command: form.value.command.trim(),
     category: form.value.category || 'dev-tools', // 如果没有选择分类，默认为开发工具
     tags: form.value.tags,
-    parameters: form.value.parameters.filter(p => p.name.trim()), // 过滤空参数
+    parameters: form.value.parameters.filter(p => p.name.trim()).map((param, index) => ({
+      ...param,
+      isDefault: defaultCommandParam.value === index
+    })), // 过滤空参数并设置默认参数
     options: form.value.options.filter(o => o.shortName.trim() || o.longName.trim()), // 过滤空选项
     commonParameters: form.value.commonParameters.filter(p => p.name.trim()), // 过滤空常用参数
     commonCommands: form.value.commonCommands.filter(c => c.name.trim()), // 过滤空常用命令
@@ -1451,9 +1920,6 @@ const getOriginalParametersDisplay = () => {
       case ParameterType.OPTIONAL:
         typeDisplay = ' (可选)'
         break
-      case ParameterType.DISABLED:
-        typeDisplay = ' (不可选)'
-        break
     }
     
     const defaultValue = param.defaultValue ? ` [默认: ${param.defaultValue}]` : ''
@@ -1549,8 +2015,8 @@ const getOriginalOptionsDisplay = () => {
       case ParameterType.OPTIONAL:
         typeDisplay = ' (可选)'
         break
-      case ParameterType.DISABLED:
-        typeDisplay = ' (不可选)'
+      case ParameterType.MUTEX:
+        typeDisplay = ' (互斥)'
         break
     }
     
@@ -1566,9 +2032,6 @@ const getOriginalOptionsDisplay = () => {
             break
           case ParameterType.OPTIONAL:
             pTypeDisplay = ' (可选)'
-            break
-          case ParameterType.DISABLED:
-            pTypeDisplay = ' (不可选)'
             break
         }
         const pDesc = p.description ? ` - ${p.description}` : ''
@@ -1597,39 +2060,462 @@ const getOriginalCommonCommandsDisplay = () => {
   }).join('\n\n')
 }
 
-// 选项管理
-const addOption = () => {
-  if (!form.value.options) {
-    form.value.options = []
+
+
+// 添加选项设置对话框
+const showAddOptionDialog = ref(false)
+
+// 参数值类型枚举
+const ParameterValueType = {
+  REQUIRED: 'required',    // 必带参数
+  OPTIONAL: 'optional',    // 可选参数
+  NONE: 'none'            // 不可带参数
+}
+
+const newOptionForm = ref({
+  shortName: '',
+  longName: '',
+  description: '',
+  type: ParameterType.OPTIONAL,
+  valueType: ParameterValueType.REQUIRED, // 默认必带参数
+  defaultValue: '', // 可选参数的默认值
+  parameters: []
+})
+
+// 默认参数管理
+const defaultOptionParam = ref(null) // 新选项表单中的默认参数索引
+const defaultCommandParam = ref(null) // 命令级默认参数索引
+
+// 初始化命令级默认参数选择
+watch(() => form.value.parameters, (newParams) => {
+  if (newParams && newParams.length > 0) {
+    const defaultIndex = newParams.findIndex(param => param.isDefault)
+    defaultCommandParam.value = defaultIndex !== -1 ? defaultIndex : null
+  } else {
+    defaultCommandParam.value = null
   }
-  form.value.options.push({
+}, { immediate: true, deep: true })
+
+// 显示添加选项对话框
+const addOption = () => {
+  // 重置表单
+  newOptionForm.value = {
     shortName: '',
     longName: '',
     description: '',
-    type: ParameterType.OPTIONAL,
-    hasValue: false,
+    type: ParameterType.OPTIONAL,        // 默认可选选项
+    valueType: ParameterValueType.REQUIRED, // 默认必带参数
+    defaultValue: '', // 可选参数的默认值
     parameters: []
+  }
+  defaultOptionParam.value = null // 重置默认参数选择
+  currentEditingIndex.value = -1
+  showAddOptionDialog.value = true
+}
+
+// 检查是否需要显示参数配置
+const shouldShowParameterConfig = computed(() => {
+  return newOptionForm.value.valueType === ParameterValueType.REQUIRED || 
+         newOptionForm.value.valueType === ParameterValueType.OPTIONAL
+})
+
+// 检查选项是否应该显示参数
+const shouldShowParametersForOption = (option) => {
+  // 兼容旧数据：如果有hasValue字段，使用它；否则使用valueType
+  if (option.hasValue !== undefined) {
+    return option.hasValue && option.parameters && option.parameters.length > 0
+  }
+  
+  if (option.valueType) {
+    const hasValueType = option.valueType === ParameterValueType.REQUIRED || 
+                        option.valueType === ParameterValueType.OPTIONAL
+    return hasValueType && option.parameters && option.parameters.length > 0
+  }
+  
+  return false
+}
+
+// 获取参数值类型的显示标签
+const getValueTypeLabel = (option) => {
+  // 兼容旧数据
+  if (option.hasValue !== undefined) {
+    return option.hasValue ? '需要参数' : '无参数'
+  }
+  
+  if (option.valueType) {
+    switch (option.valueType) {
+      case ParameterValueType.REQUIRED:
+        return '必带参数'
+      case ParameterValueType.OPTIONAL:
+        return '可选参数'
+      case ParameterValueType.NONE:
+        return '不可带参数'
+      default:
+        return '未知'
+    }
+  }
+  
+  return '不可带参数'
+}
+
+// 获取参数值类型的标签颜色
+const getValueTypeTagType = (option) => {
+  // 兼容旧数据
+  if (option.hasValue !== undefined) {
+    return option.hasValue ? 'warning' : ''
+  }
+  
+  if (option.valueType) {
+    switch (option.valueType) {
+      case ParameterValueType.REQUIRED:
+        return 'warning'
+      case ParameterValueType.OPTIONAL:
+        return 'success'
+      case ParameterValueType.NONE:
+        return ''
+      default:
+        return ''
+    }
+  }
+  
+  return ''
+}
+
+// 新选项表单的参数管理
+const addNewOptionParameter = () => {
+  if (!newOptionForm.value.parameters) {
+    newOptionForm.value.parameters = []
+  }
+  newOptionForm.value.parameters.push({
+    name: '',
+    description: ''
   })
+}
+
+const removeNewOptionParameter = (index) => {
+  newOptionForm.value.parameters.splice(index, 1)
+  
+  // 更新默认参数选择
+  if (defaultOptionParam.value === index) {
+    defaultOptionParam.value = null
+  } else if (defaultOptionParam.value > index) {
+    defaultOptionParam.value -= 1
+  }
+}
+
+// 编辑已有选项
+const editOption = (optionIndex) => {
+  const option = form.value.options[optionIndex]
+  
+  // 数据迁移：将旧的hasValue转换为新的valueType
+  let valueType = ParameterValueType.NONE
+  if (option.hasValue !== undefined) {
+    valueType = option.hasValue ? ParameterValueType.REQUIRED : ParameterValueType.NONE
+  } else if (option.valueType) {
+    valueType = option.valueType
+  }
+  
+  newOptionForm.value = { 
+    ...option,
+    valueType: valueType,
+    defaultValue: option.defaultValue || '' // 确保defaultValue字段存在
+  }
+  
+  // 恢复默认参数选择
+  defaultOptionParam.value = null
+  if (option.parameters) {
+    const defaultIndex = option.parameters.findIndex(param => param.isDefault)
+    if (defaultIndex !== -1) {
+      defaultOptionParam.value = defaultIndex
+    }
+  }
+  
+  currentEditingIndex.value = optionIndex
+  showAddOptionDialog.value = true
+}
+
+const currentEditingIndex = ref(-1)
+
+// 确认添加选项
+const confirmAddOption = () => {
+  // 验证必填字段
+  if (!newOptionForm.value.shortName && !newOptionForm.value.longName) {
+    ElMessage.warning('请填写短选项名或长选项名')
+    return
+  }
+  
+  if (!newOptionForm.value.description) {
+    ElMessage.warning('请填写选项描述')
+    return
+  }
+  
+  if (!form.value.options) {
+    form.value.options = []
+  }
+  
+  // 清理数据：确保只使用新的数据结构
+  const cleanedOption = { ...newOptionForm.value }
+  delete cleanedOption.hasValue // 移除旧字段
+  
+  // 如果是不可带参数，清空默认值
+  if (cleanedOption.valueType === ParameterValueType.NONE) {
+    cleanedOption.defaultValue = ''
+  }
+  
+  // 处理默认参数设置
+  if (cleanedOption.parameters) {
+    cleanedOption.parameters.forEach((param, index) => {
+      param.isDefault = (defaultOptionParam.value === index)
+    })
+  }
+
+  if (currentEditingIndex.value !== -1) {
+    // 编辑模式：更新已有选项
+    form.value.options[currentEditingIndex.value] = cleanedOption
+    ElMessage.success('选项更新成功')
+    currentEditingIndex.value = -1
+  } else {
+    // 添加模式：添加新选项
+    form.value.options.push(cleanedOption)
+    ElMessage.success('选项添加成功')
+  }
+  
+  showAddOptionDialog.value = false
+}
+
+// 互斥选项管理
+const showMutexOptionDialog = ref(false)
+const selectedOption1 = ref('')
+const selectedOption2 = ref('')
+
+// 获取可用于互斥的选项（只能选择可选选项）
+const availableOptionsForMutex = computed(() => {
+  if (!form.value.options) return []
+  return form.value.options
+    .map((opt, index) => ({ ...opt, index }))
+    .filter(opt => opt.type === ParameterType.OPTIONAL) // 只能选择可选选项
+    .filter(opt => opt.shortName || opt.longName) // 必须有名称
+    .filter(opt => !isOptionInMutexGroup(index)) // 不能选择已经在互斥组中的选项
+})
+
+// 检查选项是否在互斥组中
+const isOptionInMutexGroup = (optionIndex) => {
+  if (!form.value.mutexGroups) return false
+  return form.value.mutexGroups.some(group => 
+    group.optionIndexes.includes(optionIndex)
+  )
+}
+
+// 获取所有普通选项（不在互斥组中的选项）
+const regularOptions = computed(() => {
+  if (!form.value.options) return []
+  return form.value.options
+    .map((opt, index) => ({ ...opt, originalIndex: index }))
+    .filter((opt, index) => !isOptionInMutexGroup(index))
+})
+
+// 获取互斥组显示数据
+const mutexGroupsDisplay = computed(() => {
+  if (!form.value.mutexGroups || !form.value.options) return []
+  
+  return form.value.mutexGroups.map((group, groupIndex) => ({
+    ...group,
+    groupIndex,
+    options: group.optionIndexes.map(index => ({
+      ...form.value.options[index],
+      originalIndex: index
+    }))
+  }))
+})
+
+// 显示互斥选项配对对话框
+const showMutexPairingDialog = () => {
+  selectedOption1.value = ''
+  selectedOption2.value = ''
+  showMutexOptionDialog.value = true
+}
+
+// 确认创建互斥选项对
+const confirmMutexPairing = () => {
+  if (!selectedOption1.value || !selectedOption2.value) {
+    ElMessage.warning('请选择两个不同的选项进行互斥配对')
+    return
+  }
+  
+  if (selectedOption1.value === selectedOption2.value) {
+    ElMessage.warning('不能选择相同的选项')
+    return
+  }
+  
+  // 初始化互斥组数组
+  if (!form.value.mutexGroups) {
+    form.value.mutexGroups = []
+  }
+  
+  // 创建新的互斥组
+  const option1Index = parseInt(selectedOption1.value)
+  const option2Index = parseInt(selectedOption2.value)
+  
+  form.value.mutexGroups.push({
+    id: `mutex_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    name: `互斥组 ${form.value.mutexGroups.length + 1}`,
+    optionIndexes: [option1Index, option2Index]
+  })
+  
+  showMutexOptionDialog.value = false
+  ElMessage.success('互斥选项对创建成功')
+}
+
+// 添加互斥选项对（保持向后兼容）
+const addMutexOptionPair = () => {
+  showMutexPairingDialog()
+}
+
+// 常用参数模板
+const commonParamTemplates = [
+  // 文件路径相关
+  { name: 'file', description: '文件路径', category: '文件' },
+  { name: 'input', description: '输入文件', category: '文件' },
+  { name: 'output', description: '输出文件', category: '文件' },
+  { name: 'config', description: '配置文件', category: '文件' },
+  { name: 'log', description: '日志文件', category: '文件' },
+  
+  // 网络相关
+  { name: 'url', description: '网址链接', category: '网络' },
+  { name: 'host', description: '主机地址', category: '网络' },
+  { name: 'port', description: '端口号', category: '网络' },
+  { name: 'timeout', description: '超时时间(秒)', category: '网络' },
+  
+  // 通用配置
+  { name: 'name', description: '名称', category: '通用' },
+  { name: 'id', description: '标识符', category: '通用' },
+  { name: 'type', description: '类型', category: '通用' },
+  { name: 'format', description: '格式', category: '通用' },
+  { name: 'encoding', description: '编码格式', category: '通用' },
+  
+  // 数量和范围
+  { name: 'count', description: '数量', category: '数量' },
+  { name: 'limit', description: '限制数量', category: '数量' },
+  { name: 'size', description: '大小', category: '数量' },
+  { name: 'max', description: '最大值', category: '数量' },
+  { name: 'min', description: '最小值', category: '数量' },
+]
+
+// 常用参数对话框
+const showCommonParamsDialog = ref(false)
+const currentOptionIndex = ref(-1)
+const selectedCommonParams = ref([])
+
+// 显示常用参数选择对话框
+const showCommonParamsModal = (optionIndex = -1) => {
+  currentOptionIndex.value = optionIndex
+  selectedCommonParams.value = []
+  showCommonParamsDialog.value = true
+}
+
+// 确认添加常用参数
+const confirmAddCommonParams = () => {
+  if (selectedCommonParams.value.length === 0) {
+    ElMessage.warning('请选择要添加的常用参数')
+    return
+  }
+  
+  let targetOption
+  if (currentOptionIndex.value === -1) {
+    // 在新选项表单中添加
+    targetOption = newOptionForm.value
+  } else {
+    // 在已有选项中添加
+    targetOption = form.value.options[currentOptionIndex.value]
+  }
+  
+  if (!targetOption.parameters) {
+    targetOption.parameters = []
+  }
+  
+  // 添加选中的常用参数
+  selectedCommonParams.value.forEach(templateIndex => {
+    const template = commonParamTemplates[templateIndex]
+    targetOption.parameters.push({
+      name: template.name,
+      description: template.description
+    })
+  })
+  
+  showCommonParamsDialog.value = false
+  ElMessage.success(`已添加 ${selectedCommonParams.value.length} 个常用参数`)
+}
+
+// 按分类分组常用参数
+const groupedCommonParams = computed(() => {
+  const groups = {}
+  commonParamTemplates.forEach((param, index) => {
+    if (!groups[param.category]) {
+      groups[param.category] = []
+    }
+    groups[param.category].push({ ...param, index })
+  })
+  return groups
+})
+
+// 判断是否为默认参数
+const isDefaultParam = (param, paramIndex, option) => {
+  // 如果参数本身有isDefault标记，使用该标记
+  if (param.hasOwnProperty('isDefault')) {
+    return param.isDefault
+  }
+  
+  // 否则基于当前的默认参数选择判断
+  if (option) {
+    // 这是选项的参数，找到选项在当前编辑中的默认参数
+    if (currentEditingIndex.value !== -1 && form.value.options[currentEditingIndex.value] === option) {
+      return defaultOptionParam.value === paramIndex
+    }
+    // 对于已保存的选项，检查其parameters中的isDefault
+    return false
+  } else {
+    // 这是命令级参数
+    return defaultCommandParam.value === paramIndex
+  }
+}
+
+// 删除互斥组
+const removeMutexGroup = (groupIndex) => {
+  if (!form.value.mutexGroups) return
+  
+  // 删除指定的互斥组
+  form.value.mutexGroups.splice(groupIndex, 1)
+  
+  ElMessage.success('互斥组删除成功')
 }
 
 const removeOption = (index) => {
+  // 从互斥组中移除该选项
+  if (form.value.mutexGroups) {
+    form.value.mutexGroups.forEach((group, groupIndex) => {
+      const optionPosition = group.optionIndexes.indexOf(index)
+      if (optionPosition !== -1) {
+        group.optionIndexes.splice(optionPosition, 1)
+        // 如果互斥组只剩一个选项，删除整个组
+        if (group.optionIndexes.length < 2) {
+          form.value.mutexGroups.splice(groupIndex, 1)
+        }
+      }
+    })
+    
+    // 更新互斥组中的选项索引（因为删除选项后索引会变化）
+    form.value.mutexGroups.forEach(group => {
+      group.optionIndexes = group.optionIndexes.map(idx => 
+        idx > index ? idx - 1 : idx
+      )
+    })
+  }
+  
+  // 移除选项
   form.value.options.splice(index, 1)
 }
 
-const addOptionParameter = (optionIndex) => {
-  if (!form.value.options[optionIndex].parameters) {
-    form.value.options[optionIndex].parameters = []
-  }
-  form.value.options[optionIndex].parameters.push({
-    name: '',
-    description: '',
-    type: ParameterType.OPTIONAL
-  })
-}
 
-const removeOptionParameter = (optionIndex, paramIndex) => {
-  form.value.options[optionIndex].parameters.splice(paramIndex, 1)
-}
 
 // 常用参数管理
 const addCommonParam = () => {
@@ -1913,6 +2799,43 @@ watch(() => props.editingCommand, (newCommand) => {
       &:hover {
         transform: scale(1.05);
       }
+    }
+  }
+}
+
+// 选项验证提示样式
+.options-validation {
+  margin: var(--el-spacing-md) 0;
+  
+  .validation-message {
+    display: flex;
+    align-items: center;
+    gap: var(--el-spacing-xs);
+    padding: var(--el-spacing-sm);
+    margin-bottom: var(--el-spacing-xs);
+    border-radius: var(--el-border-radius-base);
+    font-size: var(--el-font-size-small);
+    
+    &.error {
+      background: var(--el-color-error-light-9);
+      color: var(--el-color-error);
+      border: 1px solid var(--el-color-error-light-7);
+    }
+    
+    &.warning {
+      background: var(--el-color-warning-light-9);
+      color: var(--el-color-warning-dark-2);
+      border: 1px solid var(--el-color-warning-light-7);
+    }
+    
+    &.info {
+      background: var(--el-color-info-light-9);
+      color: var(--el-color-info-dark-2);
+      border: 1px solid var(--el-color-info-light-7);
+    }
+    
+    .el-icon {
+      font-size: var(--el-font-size-base);
     }
   }
 }
@@ -2273,5 +3196,383 @@ watch(() => props.editingCommand, (newCommand) => {
   font-size: var(--el-font-size-small);
   color: var(--el-text-color-regular);
   line-height: 1.5;
+}
+
+// 选项按钮组样式
+.option-buttons {
+  display: flex;
+  gap: var(--el-spacing-sm);
+  align-items: center;
+  
+  .add-mutex-option-btn {
+    border: 1px dashed var(--el-color-warning);
+    color: var(--el-color-warning);
+    
+    &:hover {
+      background: var(--el-color-warning-light-9);
+      border-color: var(--el-color-warning);
+    }
+  }
+}
+
+
+
+// 选项分区样式
+.regular-options-section,
+.mutex-options-section {
+  margin-bottom: var(--el-spacing-lg);
+}
+
+.subsection-title {
+  font-size: var(--el-font-size-medium);
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: var(--el-spacing-md);
+  padding-bottom: var(--el-spacing-xs);
+  border-bottom: 2px solid var(--el-border-color-light);
+}
+
+// 互斥选项组样式
+.mutex-group-item {
+  margin-bottom: var(--el-spacing-md);
+  border: 2px solid var(--el-color-warning-light-7);
+  
+  .mutex-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--el-spacing-md);
+    padding-bottom: var(--el-spacing-sm);
+    border-bottom: 1px solid var(--el-border-color-light);
+    
+    h5 {
+      margin: 0;
+      color: var(--el-color-warning-dark-2);
+      font-weight: 600;
+    }
+  }
+  
+  .mutex-options-row {
+    display: flex;
+    align-items: center;
+    gap: var(--el-spacing-md);
+  }
+  
+  .mutex-option-item {
+    flex: 1;
+    padding: var(--el-spacing-sm);
+    border: 1px dashed var(--el-color-warning-light-5);
+    border-radius: var(--el-border-radius-base);
+    background: var(--el-color-warning-light-9);
+  }
+  
+  .mutex-separator {
+    text-align: center;
+    
+    .mutex-vs {
+      display: inline-block;
+      padding: var(--el-spacing-xs) var(--el-spacing-sm);
+      background: var(--el-color-warning);
+      color: white;
+      border-radius: var(--el-border-radius-round);
+      font-weight: bold;
+      font-size: var(--el-font-size-small);
+    }
+  }
+}
+
+
+
+// 互斥选项配对对话框样式
+.mutex-pairing-selection {
+  .no-options-warning {
+    margin-bottom: var(--el-spacing-md);
+  }
+  
+  .mutex-selection-form {
+    .form-group {
+      margin-bottom: var(--el-spacing-md);
+      
+      label {
+        display: block;
+        margin-bottom: var(--el-spacing-xs);
+        font-weight: 600;
+        color: var(--el-text-color-primary);
+      }
+    }
+  }
+}
+
+// 选项显示样式
+.option-display {
+  .option-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--el-spacing-md);
+    
+    .option-names {
+      display: flex;
+      align-items: center;
+      gap: var(--el-spacing-sm);
+      
+      .short-name {
+        font-weight: 600;
+        color: var(--el-color-primary);
+        font-size: var(--el-font-size-medium);
+      }
+      
+      .long-name {
+        color: var(--el-text-color-regular);
+        font-size: var(--el-font-size-medium);
+      }
+    }
+    
+    .option-actions {
+      display: flex;
+      gap: var(--el-spacing-xs);
+    }
+  }
+  
+  .option-description {
+    color: var(--el-text-color-secondary);
+    font-size: var(--el-font-size-small);
+    line-height: 1.4;
+    margin-bottom: var(--el-spacing-sm);
+    
+    .default-value-info {
+      color: var(--el-color-warning-dark-2);
+      font-weight: 500;
+    }
+  }
+  
+  .option-params {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--el-spacing-xs);
+    
+    .params-label {
+      font-size: var(--el-font-size-small);
+      color: var(--el-text-color-secondary);
+      font-weight: 500;
+    }
+    
+    .params-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--el-spacing-xs);
+      
+      .param-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--el-spacing-xs);
+        padding: var(--el-spacing-xs) var(--el-spacing-sm);
+        background: var(--el-color-info-light-9);
+        border-radius: var(--el-border-radius-small);
+        font-size: var(--el-font-size-small);
+        color: var(--el-text-color-regular);
+      }
+    }
+  }
+}
+
+// 添加选项表单样式
+.add-option-form {
+  .form-section {
+    margin-bottom: var(--el-spacing-lg);
+    
+    h4 {
+      margin: 0 0 var(--el-spacing-md) 0;
+      color: var(--el-color-primary);
+      font-size: var(--el-font-size-medium);
+      font-weight: 600;
+    }
+    
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--el-spacing-md);
+    }
+  }
+  
+  .empty-params {
+    text-align: center;
+    padding: var(--el-spacing-lg);
+    color: var(--el-text-color-secondary);
+    background: var(--el-color-info-light-9);
+    border-radius: var(--el-border-radius-base);
+    margin-bottom: var(--el-spacing-md);
+    
+    p {
+      margin: 0;
+      font-size: var(--el-font-size-small);
+    }
+  }
+  
+  .params-list {
+    margin-bottom: var(--el-spacing-md);
+    
+      .param-item {
+    display: flex;
+    align-items: center;
+    gap: var(--el-spacing-sm);
+    margin-bottom: var(--el-spacing-sm);
+    
+    .param-name {
+      flex: 0 0 120px;
+    }
+    
+    .param-desc {
+      flex: 1;
+    }
+    
+    .param-default {
+      flex: 0 0 80px;
+    }
+  }
+  }
+  
+  .default-value-setting {
+    margin-top: var(--el-spacing-md);
+    padding: var(--el-spacing-md);
+    background: var(--el-color-warning-light-9);
+    border-radius: var(--el-border-radius-base);
+    border-left: 3px solid var(--el-color-warning);
+    
+    .form-help {
+      display: block;
+      margin-top: var(--el-spacing-xs);
+      font-size: var(--el-font-size-extra-small);
+      color: var(--el-text-color-secondary);
+    }
+  }
+  
+  .option-name-input {
+    display: flex;
+    align-items: center;
+    
+    .option-prefix {
+      background: var(--el-color-info-light-9);
+      border: 1px solid var(--el-border-color);
+      border-right: none;
+      padding: 0 8px;
+      height: 32px;
+      line-height: 30px;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      color: var(--el-color-info-dark-2);
+      border-radius: var(--el-border-radius-base) 0 0 var(--el-border-radius-base);
+      user-select: none;
+      white-space: nowrap;
+    }
+    
+    :deep(.el-input) {
+      .el-input__wrapper {
+        border-radius: 0 var(--el-border-radius-base) var(--el-border-radius-base) 0;
+        border-left: none;
+      }
+    }
+  }
+  
+  .validation-hint {
+    margin-top: var(--el-spacing-xs);
+    
+    .hint-text {
+      font-size: var(--el-font-size-extra-small);
+      color: var(--el-color-warning);
+      display: flex;
+      align-items: center;
+      
+      &:before {
+        content: "⚠";
+        margin-right: var(--el-spacing-xs);
+        font-weight: bold;
+      }
+    }
+  }
+  
+  .param-default-checkbox {
+    margin-top: var(--el-spacing-xs);
+    
+    :deep(.el-checkbox__label) {
+      font-size: var(--el-font-size-small);
+      color: var(--el-text-color-secondary);
+    }
+  }
+  
+  .param-tag {
+    .default-tag {
+      margin-left: var(--el-spacing-xs);
+      font-size: var(--el-font-size-extra-small);
+    }
+  }
+}
+
+// 常用参数相关样式
+.common-params-actions {
+  margin-top: var(--el-spacing-xs);
+}
+
+.common-params-selection {
+  .params-categories {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  
+  .param-category {
+    margin-bottom: var(--el-spacing-lg);
+    
+    .category-title {
+      margin: 0 0 var(--el-spacing-md) 0;
+      padding-bottom: var(--el-spacing-xs);
+      border-bottom: 1px solid var(--el-border-color-light);
+      color: var(--el-color-primary);
+      font-size: var(--el-font-size-medium);
+      font-weight: 600;
+    }
+    
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--el-spacing-sm);
+      
+      .param-checkbox {
+        margin: 0;
+        padding: var(--el-spacing-sm);
+        border: 1px solid var(--el-border-color-light);
+        border-radius: var(--el-border-radius-base);
+        transition: all 0.3s;
+        
+        &:hover {
+          border-color: var(--el-color-primary);
+          background: var(--el-color-primary-light-9);
+        }
+        
+        &.is-checked {
+          border-color: var(--el-color-primary);
+          background: var(--el-color-primary-light-8);
+        }
+        
+        .param-item {
+          display: flex;
+          flex-direction: column;
+          gap: var(--el-spacing-xs);
+          margin-left: var(--el-spacing-md);
+          
+          strong {
+            color: var(--el-text-color-primary);
+            font-size: var(--el-font-size-small);
+          }
+          
+          .param-desc {
+            color: var(--el-text-color-secondary);
+            font-size: var(--el-font-size-extra-small);
+            line-height: 1.4;
+          }
+        }
+      }
+    }
+  }
 }
 </style> 

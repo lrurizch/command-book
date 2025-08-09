@@ -538,12 +538,33 @@ export class CommandBuilder {
         result.isValid = false
       }
       
-      // 检查不可选选项是否被使用
-      if (option.type === 'disabled' && optionFlags.some(flag => this.selectedOptions.has(flag))) {
-        result.errors.push(`不可选选项 "${optionFlag}" 被禁止使用`)
-        result.isValid = false
-      }
+
     })
+
+    // 验证互斥组冲突
+    if (this.command.mutexGroups && Array.isArray(this.command.mutexGroups)) {
+      this.command.mutexGroups.forEach(group => {
+        if (group.optionIndexes && group.optionIndexes.length === 2) {
+          const option1 = this.options[group.optionIndexes[0]]
+          const option2 = this.options[group.optionIndexes[1]]
+          
+          if (option1 && option2) {
+            const option1Flags = this.getOptionFlags(option1)
+            const option2Flags = this.getOptionFlags(option2)
+            
+            const option1Selected = option1Flags.some(flag => this.selectedOptions.has(flag))
+            const option2Selected = option2Flags.some(flag => this.selectedOptions.has(flag))
+            
+            if (option1Selected && option2Selected) {
+              const flag1 = this.getOptionFlag(option1)
+              const flag2 = this.getOptionFlag(option2)
+              result.errors.push(`互斥选项冲突：${flag1} 和 ${flag2} 不能同时使用`)
+              result.isValid = false
+            }
+          }
+        }
+      })
+    }
 
     // 检查选项依赖
     this.selectedOptions.forEach(flag => {
