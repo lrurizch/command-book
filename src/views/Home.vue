@@ -235,10 +235,10 @@
           <span>切换中...</span>
         </div>
         
-        <!-- 渐进式加载指示器 -->
-        <div v-if="isProgressiveLoading" class="progressive-loading">
+        <!-- 渐进式加载指示器（仅在分页模式下显示） -->
+        <div v-if="isProgressiveLoading && !commandStore.displaySettings.enableInfiniteScroll" class="progressive-loading">
           <el-icon class="is-loading"><Loading /></el-icon>
-          <span>正在加载第 {{ loadedBatches }} 批数据（每批 {{ BATCH_SIZE }} 条）...</span>
+          <span>正在加载命令，已加载 {{ loadedCount }} 条...</span>
         </div>
         </div>
         
@@ -607,10 +607,13 @@ const loadingStep = ref(0) // 0: 初始化, 1: 加载中, 2: 完成
 const infiniteScrollCommands = ref([])
 
 // 渐进式加载配置
-const BATCH_SIZE = 10 // 每批加载10条
+const BATCH_SIZE = 1 // 每次加载1条，立即显示
 const progressiveCommands = ref([]) // 渐进式累积的命令
 const isProgressiveLoading = ref(false) // 是否正在渐进式加载
-const loadedBatches = ref(0) // 已加载的批次数
+const loadedCount = ref(0) // 已加载的命令数量
+
+// 预加载缓存
+const preloadCache = new Map() // 分类预加载缓存
 
 // 滚动和分页器状态
 const isScrolled = ref(false)
@@ -634,55 +637,88 @@ const headerTitle = computed(() => {
   return category ? category.name : '命令列表'
 })
 
-// 渐进式批量加载命令（每次10条）
+// 渐进式批量加载命令（每次1条）
 const progressiveBatchLoad = async () => {
-  console.log('🚀 开始渐进式批量加载')
+  if (!commandStore.displaySettings.enableInfiniteScroll) {
+    console.log('🚀 开始渐进式逐条加载')
+  }
   
-  // 重置状态
+  // 生成缓存键
+  const cacheKey = `${commandStore.selectedCategory}-${commandStore.currentSearchQuery}-${commandStore.selectedTags.join(',')}`
+  
+  // 立即重置状态，无延迟
   progressiveCommands.value = []
-  loadedBatches.value = 0
+  loadedCount.value = 0
   isProgressiveLoading.value = true
   
-  // 获取所有需要加载的命令
+  // 获取所有需要加载的命令（优化：先检查缓存）
   let allCommands = []
-  const category = commandStore.selectedCategory
-  const query = commandStore.currentSearchQuery
-  const tags = commandStore.selectedTags
   
   try {
-    if (commandStore.globalCategoryIndex.size > 0) {
-      allCommands = commandStore.getCommandsFromIndex(category, query, tags) || []
+    // 首先检查缓存
+    if (preloadCache.has(cacheKey)) {
+      allCommands = preloadCache.get(cacheKey)
+      if (!commandStore.displaySettings.enableInfiniteScroll) {
+        console.log(`🚀 从缓存获取: ${allCommands.length} 条命令`)
+      }
     } else {
-      allCommands = commandStore.filteredCommands || []
+      // 直接从全局索引获取，这是最快的方式
+      if (commandStore.globalCategoryIndex.size > 0) {
+        allCommands = commandStore.getCommandsFromIndex(
+          commandStore.selectedCategory,
+          commandStore.currentSearchQuery,
+          commandStore.selectedTags
+        ) || []
+      } else {
+        allCommands = commandStore.filteredCommands || []
+      }
+      
+      // 缓存结果
+      preloadCache.set(cacheKey, allCommands)
     }
     
-    console.log(`📊 总共需要加载: ${allCommands.length} 条命令`)
+    if (!commandStore.displaySettings.enableInfiniteScroll) {
+      console.log(`📊 总共需要加载: ${allCommands.length} 条命令`)
+    }
     
-    // 如果没有数据，直接结束
+    // 如果没有数据，立即结束
     if (allCommands.length === 0) {
       isProgressiveLoading.value = false
       return
     }
     
-    // 开始批量加载
-    const totalBatches = Math.ceil(allCommands.length / BATCH_SIZE)
-    
-    for (let batch = 0; batch < totalBatches; batch++) {
-      const start = batch * BATCH_SIZE
-      const end = Math.min(start + BATCH_SIZE, allCommands.length)
-      const batchCommands = allCommands.slice(start, end)
+    // 立即显示第一条命令，完全同步，无任何延迟
+    if (allCommands.length > 0) {
+      const firstCommand = allCommands[0]
+      progressiveCommands.value = [firstCommand] // 直接赋值，触发响应式更新
+      loadedCount.value = 1
       
-      // 添加到渐进式命令列表
-      progressiveCommands.value.push(...batchCommands)
-      loadedBatches.value = batch + 1
-      
-      console.log(`📦 加载第 ${batch + 1}/${totalBatches} 批: ${batchCommands.length} 条命令，累计 ${progressiveCommands.value.length} 条`)
-      
-      // 给UI一个更新的机会，让用户看到逐批加载的效果
-      await new Promise(resolve => setTimeout(resolve, 100))
+      if (!commandStore.displaySettings.enableInfiniteScroll) {
+        console.log(`📦 立即显示第1条命令: ${firstCommand.name}`)
+      }
     }
     
-    console.log('✅ 渐进式加载完成')
+    // 继续加载剩余命令（从第二条开始）
+    for (let i = 1; i < allCommands.length; i++) {
+      const command = allCommands[i]
+      
+      // 立即添加到渐进式命令列表
+      progressiveCommands.value.push(command)
+      loadedCount.value = i + 1
+      
+      if (!commandStore.displaySettings.enableInfiniteScroll) {
+        console.log(`📦 加载第 ${i + 1}/${allCommands.length} 条命令: ${command.name}`)
+      }
+      
+      // 后续命令给UI一个更新的机会，让每条命令都能立即显示
+      // 无限滚动模式下极速加载，分页模式下让用户看到逐条加载的效果
+      const delay = commandStore.displaySettings.enableInfiniteScroll ? 1 : 50
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+    
+    if (!commandStore.displaySettings.enableInfiniteScroll) {
+      console.log('✅ 渐进式加载完成')
+    }
     
     // 加载完成后，如果是无限滚动模式，同步到无限滚动数组
     if (commandStore.displaySettings.enableInfiniteScroll) {
@@ -801,8 +837,8 @@ const progressiveLoadCommands = async () => {
 // 显示的命令列表（渐进式版本）
 const displayCommands = computed(() => {
   const result = (() => {
-    // 渐进式加载模式：显示已加载的批次
-    if (isProgressiveLoading.value && progressiveCommands.value.length > 0) {
+    // 渐进式加载模式：优先显示已加载的命令
+    if (progressiveCommands.value.length > 0) {
       return progressiveCommands.value
     }
     
@@ -1122,8 +1158,10 @@ const handlePageChange = async (page) => {
   nextTick(() => {
     isPageChanging.value = false
     
-    // 聚焦到新页面的第一个命令卡片
-    focusFirstCommand()
+    // 聚焦到新页面的第一个命令卡片（仅在分页模式下）
+    if (!commandStore.displaySettings.enableInfiniteScroll) {
+      focusFirstCommand()
+    }
     
     // 性能监控（仅开发环境且有性能问题时）
     if (isDev) {
@@ -1149,8 +1187,10 @@ const handlePageSizeChange = async (size) => {
   nextTick(() => {
     isPageChanging.value = false
     
-    // 页面大小变化时也聚焦到第一个命令
-    focusFirstCommand()
+    // 页面大小变化时也聚焦到第一个命令（仅在分页模式下）
+    if (!commandStore.displaySettings.enableInfiniteScroll) {
+      focusFirstCommand()
+    }
   })
 }
 
@@ -1181,11 +1221,19 @@ watch([() => commandStore.selectedCategory, () => commandStore.currentSearchQuer
     infiniteScrollLoading.value = false
     infiniteScrollCommands.value = []
     
+    // 清理过期缓存（保留最近的10个缓存条目）
+    if (preloadCache.size > 10) {
+      const entries = Array.from(preloadCache.entries())
+      preloadCache.clear()
+      // 保留最近的5个
+      entries.slice(-5).forEach(([key, value]) => preloadCache.set(key, value))
+    }
+    
     // 立即触发渐进式批量加载
     await progressiveBatchLoad()
     
-    // 搜索或筛选变化后也聚焦到第一个命令
-    if (hasChanged) {
+    // 搜索或筛选变化后聚焦到第一个命令（仅在分页模式下）
+    if (hasChanged && !commandStore.displaySettings.enableInfiniteScroll) {
       focusFirstCommand()
     }
   }

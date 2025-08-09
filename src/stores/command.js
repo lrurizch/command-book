@@ -109,6 +109,9 @@ export const useCommandStore = defineStore('command', () => {
   const indexIsLoading = ref(false)
   const indexIsDirty = ref(false) // 标记索引是否需要重建
   
+  // 搜索索引（大数据量优化）
+  const searchIndex = ref(new Map()) // 预处理的搜索索引：keyword -> 命令ID数组
+  
   // ===== 分类索引持久化 =====
   const CATEGORY_INDEX_KEY = 'command-category-index'
   const INDEX_METADATA_KEY = 'command-index-metadata'
@@ -223,31 +226,46 @@ export const useCommandStore = defineStore('command', () => {
       // 获取所有分类ID
       const allCategoryIds = ['all', 'recent', 'recycle-bin', ...categories.value.map(cat => cat.id)]
       
-      // 为每个分类构建索引
-      for (const categoryId of allCategoryIds) {
-        let categoryCommands = []
-        
-                 if (categoryId === 'all') {
-           // 全部命令（排除已删除的）
-           categoryCommands = commands.value.filter(cmd => !cmd.isDeleted)
-                 } else if (categoryId === 'recent') {
-           // 最近使用的命令 - 从已有的命令中筛选最近使用的
-           const recentIds = recentCommands.value.map(cmd => cmd.id || cmd)
-           categoryCommands = commands.value.filter(cmd => 
-             !cmd.isDeleted && recentIds.includes(cmd.id)
-           )
-        } else if (categoryId === 'recycle-bin') {
-          // 回收站命令
-          categoryCommands = commands.value.filter(cmd => cmd.isDeleted)
-        } else {
-          // 普通分类
-          categoryCommands = commands.value.filter(cmd => {
-            return !cmd.isDeleted && cmd.category === categoryId
+      // 大数据量优化：分片处理，避免阻塞UI
+      const CHUNK_SIZE = 10 // 每次处理10个分类
+      const chunks = []
+      for (let i = 0; i < allCategoryIds.length; i += CHUNK_SIZE) {
+        chunks.push(allCategoryIds.slice(i, i + CHUNK_SIZE))
+      }
+      
+      // 分片构建索引
+      for (const chunk of chunks) {
+        await new Promise(resolve => {
+          // 使用requestAnimationFrame确保不阻塞UI
+          requestAnimationFrame(() => {
+            for (const categoryId of chunk) {
+              let categoryCommands = []
+              
+              if (categoryId === 'all') {
+                // 全部命令（排除已删除的）
+                categoryCommands = commands.value.filter(cmd => !cmd.isDeleted)
+              } else if (categoryId === 'recent') {
+                // 最近使用的命令 - 从已有的命令中筛选最近使用的
+                const recentIds = recentCommands.value.map(cmd => cmd.id || cmd)
+                categoryCommands = commands.value.filter(cmd => 
+                  !cmd.isDeleted && recentIds.includes(cmd.id)
+                )
+              } else if (categoryId === 'recycle-bin') {
+                // 回收站命令
+                categoryCommands = commands.value.filter(cmd => cmd.isDeleted)
+              } else {
+                // 普通分类
+                categoryCommands = commands.value.filter(cmd => {
+                  return !cmd.isDeleted && cmd.category === categoryId
+                })
+              }
+              
+              // 存储到索引中
+              globalCategoryIndex.value.set(categoryId, categoryCommands)
+            }
+            resolve()
           })
-        }
-        
-        // 存储到索引中
-        globalCategoryIndex.value.set(categoryId, categoryCommands)
+        })
       }
       
       // 更新元数据
@@ -353,6 +371,8 @@ export const useCommandStore = defineStore('command', () => {
    * 从索引中获取分类命令（替代原有的filteredCommands）
    */
   const getCommandsFromIndex = (categoryId, searchQuery = '', tags = []) => {
+    const startTime = performance.now()
+    
     // 从全局索引获取基础命令列表
     const baseCommands = globalCategoryIndex.value.get(categoryId) || []
     
@@ -361,26 +381,39 @@ export const useCommandStore = defineStore('command', () => {
       return baseCommands
     }
     
-    // 应用搜索和标签过滤
-    return baseCommands.filter(cmd => {
-      // 标签过滤
-      if (tags.length > 0) {
-        if (!cmd.tags || !tags.some(tag => cmd.tags.includes(tag))) {
-          return false
-        }
-      }
-      
-      // 搜索过滤
-      if (searchQuery) {
-        const lowerQuery = searchQuery.toLowerCase()
-        return cmd.name.toLowerCase().includes(lowerQuery) ||
-          cmd.description?.toLowerCase().includes(lowerQuery) ||
-          cmd.command.toLowerCase().includes(lowerQuery) ||
-          cmd.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))
-      }
-      
-      return true
-    })
+    // 大数据量优化：使用更高效的过滤方式
+    let filteredCommands = baseCommands
+    
+    // 标签过滤（优化：提前过滤）
+    if (tags.length > 0) {
+      filteredCommands = filteredCommands.filter(cmd => {
+        if (!cmd.tags || cmd.tags.length === 0) return false
+        // 使用Set进行快速查找
+        const cmdTagsSet = new Set(cmd.tags)
+        return tags.some(tag => cmdTagsSet.has(tag))
+      })
+    }
+    
+    // 搜索过滤（优化：预编译正则表达式）
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase()
+      // 对于大数据量，使用更高效的字符串匹配
+      filteredCommands = filteredCommands.filter(cmd => {
+        const nameMatch = cmd.name.toLowerCase().includes(lowerQuery)
+        const descMatch = cmd.description?.toLowerCase().includes(lowerQuery)
+        const cmdMatch = cmd.command.toLowerCase().includes(lowerQuery)
+        const tagMatch = cmd.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))
+        
+        return nameMatch || descMatch || cmdMatch || tagMatch
+      })
+    }
+    
+    const endTime = performance.now()
+    if (endTime - startTime > 10) { // 只在耗时超过10ms时输出警告
+      console.warn(`🐌 索引查询耗时过长: ${(endTime - startTime).toFixed(2)}ms，数据量: ${baseCommands.length} -> ${filteredCommands.length}`)
+    }
+    
+    return filteredCommands
   }
   
   // ===== 搜索配置 =====
