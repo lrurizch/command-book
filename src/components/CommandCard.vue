@@ -87,21 +87,11 @@
 
 <script setup>
 import { computed } from 'vue'
+import { CopyDocument, More, View, Edit, CaretRight, Setting, DocumentCopy, Delete } from '@element-plus/icons-vue'
 import { useCommandStore } from '../stores/command'
-import { 
-  CopyDocument, 
-  More, 
-  View, 
-  Edit, 
-  CaretRight, 
-  DocumentCopy, 
-  Delete, 
-  Setting,
-  TrendCharts,
-  Grid
-} from '@element-plus/icons-vue'
 
-// Props
+const commandStore = useCommandStore()
+
 const props = defineProps({
   command: {
     type: Object,
@@ -109,65 +99,41 @@ const props = defineProps({
   }
 })
 
-// Emits
-const emit = defineEmits(['copy', 'execute', 'build', 'detail', 'edit', 'delete', 'duplicate', 'manageCopy'])
+const emit = defineEmits(['copy', 'execute', 'edit', 'delete', 'detail', 'build', 'restore', 'manageCopy'])
 
-// Store
-const commandStore = useCommandStore()
+// 获取分类名称
+const categoryName = computed(() => {
+  const category = commandStore.categories.find(cat => cat.id === props.command.category)
+  return category ? category.name : '未分类'
+})
 
-// 显示设置
-const displaySettings = computed(() => commandStore.displaySettings)
+// 显示的标签
+const displayTags = computed(() => {
+  return props.command.tags || []
+})
 
-// 获取默认复制的完整命令
+// 额外的标签数量
+const extraTagsCount = computed(() => {
+  const total = (props.command.tags || []).length
+  return total > 2 ? total - 2 : 0
+})
+
+// 获取默认完整命令
 const recentCommandText = computed(() => {
+  if (!props.command) return ''
+  
+  // 优先使用默认复制命令
   const defaultCommand = commandStore.getDefaultCopyCommand(props.command.id)
-  return defaultCommand || props.command?.command || ''
+  if (defaultCommand) return defaultCommand
+  
+  // 回退到原始命令
+  return props.command.command || ''
 })
 
 // 显示的命令文本
 const displayRecentCommand = computed(() => {
-  return recentCommandText.value || '点击构建命令'
-})
-
-// 分类名称
-const categoryName = computed(() => {
-  const category = commandStore.categories.find(cat => cat.id === props.command.category)
-  return category?.name || props.command.category
-})
-
-// 显示的标签（最多3个）
-const displayTags = computed(() => {
-  return props.command.tags?.slice(0, 3) || []
-})
-
-// 额外标签数量
-const extraTagsCount = computed(() => {
-  const totalTags = props.command.tags?.length || 0
-  return Math.max(0, totalTags - 3)
-})
-
-// 是否有可选信息需要显示
-const hasOptionalInfo = computed(() => {
-  return displaySettings.value.showCategory ||
-         displaySettings.value.showTags ||
-         (displaySettings.value.showUsageStats && props.command.usageCount) ||
-         (displaySettings.value.showParameters && hasParameters.value)
-})
-
-// 是否有参数
-const hasParameters = computed(() => {
-  return props.command.parameters?.length > 0 || 
-         (props.command.command && props.command.command.includes('{{'))
-})
-
-// 参数数量
-const parameterCount = computed(() => {
-  if (props.command.parameters?.length) {
-    return props.command.parameters.length
-  }
-  // 如果没有参数定义，从命令中统计占位符数量
-  const matches = props.command.command?.match(/\{\{[^}]+\}\}/g) || []
-  return matches.length
+  const text = recentCommandText.value
+  return text || '点击构建命令'
 })
 
 // 卡片点击处理
@@ -177,19 +143,14 @@ const handleCardClick = () => {
     emit('build', props.command)
   } else {
     // 有默认完整命令，执行复制
-    handleCopyRecentCommand()
+    emit('copy', recentCommandText.value)
   }
 }
 
 // 卡片双击处理
 const handleCardDoubleClick = () => {
-  if (!recentCommandText.value) {
-    // 如果没有默认完整命令，打开构建器
-    emit('build', props.command)
-  } else {
-    // 有默认完整命令，打开构建器
-    emit('build', props.command)
-  }
+  // 无论是否有命令，双击都打开构建器
+  emit('build', props.command)
 }
 
 // 复制命令处理
@@ -205,31 +166,34 @@ const handleCopyRecentCommand = (e) => {
   }
 }
 
-const handleBuild = () => {
-  emit('build', props.command)
-}
-
-const handleDetail = () => {
+// 其他事件处理
+const handleDetail = (e) => {
+  e.stopPropagation()
   emit('detail', props.command)
 }
 
-const handleEdit = () => {
+const handleEdit = (e) => {
+  e.stopPropagation()
   emit('edit', props.command)
 }
 
-const handleExecute = () => {
+const handleExecute = (e) => {
+  e.stopPropagation()
   emit('execute', props.command)
 }
 
-const handleDuplicate = () => {
-  emit('duplicate', props.command)
-}
-
-const handleDelete = () => {
+const handleDelete = (e) => {
+  e.stopPropagation()
   emit('delete', props.command)
 }
 
-const handleManageCopy = () => {
+const handleDuplicate = (e) => {
+  e.stopPropagation()
+  emit('duplicate', props.command)
+}
+
+const handleManageCopy = (e) => {
+  e.stopPropagation()
   emit('manageCopy', props.command)
 }
 </script>
