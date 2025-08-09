@@ -19,6 +19,7 @@ import {
   ParameterRequirement,
   ParameterLevel
 } from '../utils/parameterClassification.js'
+import { migrateCommands } from '../utils/parameterMigration.js'
 
 // 导入示例数据
 import gitCommands from '../../git-commands-processed.json'
@@ -1396,7 +1397,8 @@ export const useCommandStore = defineStore('command', () => {
       }
       
       if (userData.userCommands) {
-        userData.userCommands.forEach(command => {
+        const migratedUserCommands = migrateCommands(userData.userCommands)
+        migratedUserCommands.forEach(command => {
           command.isUserCreated = true
           commands.value.push(command)
         })
@@ -1440,9 +1442,10 @@ export const useCommandStore = defineStore('command', () => {
    * 初始化示例数据
    */
   const initializeData = () => {
-    // 加载Git命令数据
+    // 加载Git命令数据（应用参数类型迁移）
     if (gitCommands && gitCommands.commands) {
-      gitCommands.commands.forEach(cmd => {
+      const migratedGitCommands = migrateCommands(gitCommands.commands)
+      migratedGitCommands.forEach(cmd => {
         commands.value.push({
           ...cmd,
           isUserCreated: false
@@ -1450,9 +1453,10 @@ export const useCommandStore = defineStore('command', () => {
       })
     }
     
-    // 加载更新的命令数据
+    // 加载更新的命令数据（应用参数类型迁移）
     if (updatedCommands && updatedCommands.commands) {
-      updatedCommands.commands.forEach(cmd => {
+      const migratedUpdatedCommands = migrateCommands(updatedCommands.commands)
+      migratedUpdatedCommands.forEach(cmd => {
         commands.value.push({
           ...cmd,
           isUserCreated: false

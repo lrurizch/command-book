@@ -603,12 +603,143 @@
         </div>
       </div>
 
-      <!-- 参数设置 -->
+      <!-- 选项设置 -->
+      <div class="form-section">
+        <h3 class="section-title">
+          选项设置
+          <span v-if="isEditing && getFieldChanges().options" class="changed-indicator">已修改</span>
+        </h3>
+        <p class="section-description">配置命令的选项，如 -v, --verbose, --port 等</p>
+        
+        <div class="options-list">
+          <el-card
+            v-for="(option, index) in form.options"
+            :key="`option-${index}`"
+            class="option-item"
+          >
+            <div class="option-header">
+              <div class="option-name-inputs">
+                <el-input
+                  v-model="option.shortName"
+                  placeholder="短选项 (如: -v)"
+                  class="option-short-input"
+                />
+                <el-input
+                  v-model="option.longName"
+                  placeholder="长选项 (如: --verbose)"
+                  class="option-long-input"
+                />
+              </div>
+              <el-button
+                type="danger"
+                size="small"
+                @click="removeOption(index)"
+              >
+                删除
+              </el-button>
+            </div>
+            
+            <div class="option-body">
+              <div class="form-group">
+                <label class="form-label">描述</label>
+                <el-input
+                  v-model="option.description"
+                  placeholder="选项描述"
+                />
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">选项类型</label>
+                  <el-radio-group v-model="option.type">
+                    <el-radio :value="ParameterType.REQUIRED">必选选项</el-radio>
+                    <el-radio :value="ParameterType.OPTIONAL">可选选项</el-radio>
+                    <el-radio :value="ParameterType.DISABLED">不可选选项</el-radio>
+                  </el-radio-group>
+                </div>
+                <div class="form-group">
+                  <el-checkbox v-model="option.hasValue">
+                    需要参数值
+                  </el-checkbox>
+                </div>
+              </div>
+              
+              <!-- 选项参数设置 -->
+              <div v-if="option.hasValue" class="option-parameters">
+                <label class="form-label">选项参数</label>
+                <div class="option-param-list">
+                  <div
+                    v-for="(param, paramIndex) in option.parameters"
+                    :key="`option-${index}-param-${paramIndex}`"
+                    class="option-param-item"
+                  >
+                    <el-input
+                      v-model="param.name"
+                      placeholder="参数名"
+                      class="option-param-name"
+                    />
+                    <el-input
+                      v-model="param.description"
+                      placeholder="参数描述"
+                      class="option-param-desc"
+                    />
+                    <el-select v-model="param.type" class="option-param-type" placeholder="类型">
+                      <el-option :value="ParameterType.REQUIRED" label="必选"></el-option>
+                      <el-option :value="ParameterType.OPTIONAL" label="可选"></el-option>
+                      <el-option :value="ParameterType.DISABLED" label="不可选"></el-option>
+                    </el-select>
+                    <el-button
+                      type="danger"
+                      size="small"
+                      @click="removeOptionParameter(index, paramIndex)"
+                    >
+                      删除
+                    </el-button>
+                  </div>
+                  <el-button
+                    size="small"
+                    @click="addOptionParameter(index)"
+                  >
+                    + 添加选项参数
+                  </el-button>
+                </div>
+              </div>
+            </div>
+          </el-card>
+          
+          <el-button
+            class="add-option-btn"
+            @click="addOption"
+          >
+            + 添加选项
+          </el-button>
+        </div>
+        
+        <!-- 显示原始选项对比 -->
+        <div v-if="isEditing && getFieldChanges().options" class="comparison-info">
+          <div class="original-value">
+            <span class="label">原始选项:</span>
+            <div class="original-options">{{ getOriginalOptionsDisplay() }}</div>
+            <el-button 
+              type="text" 
+              size="small" 
+              @click="restoreField('options')"
+              class="restore-btn"
+              title="恢复到原始值"
+            >
+              ↺ 恢复
+            </el-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 命令级参数设置 -->
       <div v-if="detectedParameters.length > 0 || form.parameters.length > 0" class="form-section">
         <h3 class="section-title">
-          参数设置
+          命令级参数设置
           <span v-if="isEditing && getFieldChanges().parameters" class="changed-indicator">已修改</span>
         </h3>
+        <p class="section-description">配置直接跟在命令后的位置参数，如文件路径、目标地址等</p>
         
         <div v-if="detectedParameters.length > 0" class="detected-params">
           <div class="detected-params-header">
@@ -673,9 +804,12 @@
                 </div>
                 
                 <div class="form-group">
-                  <el-checkbox v-model="param.required">
-                    必填参数
-                  </el-checkbox>
+                  <label class="form-label">参数类型</label>
+                  <el-radio-group v-model="param.type">
+                    <el-radio :value="ParameterType.REQUIRED">必选参数</el-radio>
+                    <el-radio :value="ParameterType.OPTIONAL">可选参数</el-radio>
+                    <el-radio :value="ParameterType.DISABLED">不可选参数</el-radio>
+                  </el-radio-group>
                 </div>
               </div>
             </div>
@@ -685,7 +819,7 @@
             class="add-param-btn"
             @click="addCustomParameter"
           >
-            + 添加参数
+            + 添加命令级参数
           </el-button>
         </div>
         
@@ -815,6 +949,13 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'saved'])
 
 const commandStore = useCommandStore()
+
+// 参数类型枚举
+const ParameterType = {
+  REQUIRED: 'required',     // 必选参数
+  OPTIONAL: 'optional',     // 可选参数  
+  DISABLED: 'disabled'      // 不可选参数（禁止使用）
+}
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -976,7 +1117,7 @@ const addCustomParameter = () => {
   form.value.parameters.push({
     name: '',
     description: '',
-    required: false,
+    type: ParameterType.OPTIONAL,
     defaultValue: ''
   })
 }
@@ -1080,7 +1221,7 @@ const saveCommand = async () => {
     category: form.value.category || 'dev-tools', // 如果没有选择分类，默认为开发工具
     tags: form.value.tags,
     parameters: form.value.parameters.filter(p => p.name.trim()), // 过滤空参数
-    options: form.value.options.filter(o => o.flag.trim()), // 过滤空选项
+    options: form.value.options.filter(o => o.shortName.trim() || o.longName.trim()), // 过滤空选项
     commonParameters: form.value.commonParameters.filter(p => p.name.trim()), // 过滤空常用参数
     commonCommands: form.value.commonCommands.filter(c => c.name.trim()), // 过滤空常用命令
     separators: form.value.separators.filter(s => s.symbol.trim()) // 过滤空分隔符
@@ -1302,10 +1443,22 @@ const getOriginalParametersDisplay = () => {
   if (!originalData.value || !originalData.value.parameters || originalData.value.parameters.length === 0) return '无参数'
   
   return originalData.value.parameters.map(param => {
-    const required = param.required ? ' (必填)' : ''
+    let typeDisplay = ''
+    switch (param.type) {
+      case ParameterType.REQUIRED:
+        typeDisplay = ' (必选)'
+        break
+      case ParameterType.OPTIONAL:
+        typeDisplay = ' (可选)'
+        break
+      case ParameterType.DISABLED:
+        typeDisplay = ' (不可选)'
+        break
+    }
+    
     const defaultValue = param.defaultValue ? ` [默认: ${param.defaultValue}]` : ''
     const description = param.description ? ` - ${param.description}` : ''
-    return `${param.name}${required}${defaultValue}${description}`
+    return `${param.name}${typeDisplay}${defaultValue}${description}`
   }).join('\n')
 }
 
@@ -1385,7 +1538,44 @@ const getOriginalOptionsDisplay = () => {
   if (!originalData.value || !originalData.value.options || originalData.value.options.length === 0) return '无选项'
   
   return originalData.value.options.map(option => {
-    return `${option.flag}: ${option.description || '无描述'}`
+    const names = [option.shortName, option.longName].filter(Boolean)
+    const nameDisplay = names.join(' / ') || '未命名选项'
+    
+    let typeDisplay = ''
+    switch (option.type) {
+      case ParameterType.REQUIRED:
+        typeDisplay = ' (必选)'
+        break
+      case ParameterType.OPTIONAL:
+        typeDisplay = ' (可选)'
+        break
+      case ParameterType.DISABLED:
+        typeDisplay = ' (不可选)'
+        break
+    }
+    
+    const hasValue = option.hasValue ? ' 需要参数值' : ''
+    const description = option.description ? ` - ${option.description}` : ' - 无描述'
+    let params = ''
+    if (option.hasValue && option.parameters && option.parameters.length > 0) {
+      params = '\n  参数: ' + option.parameters.map(p => {
+        let pTypeDisplay = ''
+        switch (p.type) {
+          case ParameterType.REQUIRED:
+            pTypeDisplay = ' (必选)'
+            break
+          case ParameterType.OPTIONAL:
+            pTypeDisplay = ' (可选)'
+            break
+          case ParameterType.DISABLED:
+            pTypeDisplay = ' (不可选)'
+            break
+        }
+        const pDesc = p.description ? ` - ${p.description}` : ''
+        return `${p.name}${pTypeDisplay}${pDesc}`
+      }).join(', ')
+    }
+    return `${nameDisplay}${typeDisplay}${hasValue}${description}${params}`
   }).join('\n')
 }
 
@@ -1413,13 +1603,32 @@ const addOption = () => {
     form.value.options = []
   }
   form.value.options.push({
-    flag: '',
-    description: ''
+    shortName: '',
+    longName: '',
+    description: '',
+    type: ParameterType.OPTIONAL,
+    hasValue: false,
+    parameters: []
   })
 }
 
 const removeOption = (index) => {
   form.value.options.splice(index, 1)
+}
+
+const addOptionParameter = (optionIndex) => {
+  if (!form.value.options[optionIndex].parameters) {
+    form.value.options[optionIndex].parameters = []
+  }
+  form.value.options[optionIndex].parameters.push({
+    name: '',
+    description: '',
+    type: ParameterType.OPTIONAL
+  })
+}
+
+const removeOptionParameter = (optionIndex, paramIndex) => {
+  form.value.options[optionIndex].parameters.splice(paramIndex, 1)
 }
 
 // 常用参数管理
@@ -1704,6 +1913,79 @@ watch(() => props.editingCommand, (newCommand) => {
       &:hover {
         transform: scale(1.05);
       }
+    }
+  }
+}
+
+// 选项样式
+.options-list {
+  .option-item {
+    margin-bottom: var(--el-spacing-md);
+    
+    .option-header {
+      display: flex;
+      gap: var(--el-spacing-sm);
+      margin-bottom: var(--el-spacing-sm);
+      align-items: flex-end;
+      
+      .option-name-inputs {
+        display: flex;
+        gap: var(--el-spacing-sm);
+        flex: 1;
+        
+        .option-short-input {
+          flex: 0 0 120px;
+        }
+        
+        .option-long-input {
+          flex: 1;
+        }
+      }
+    }
+    
+    .option-body {
+      padding-left: var(--el-spacing-md);
+      
+      .option-parameters {
+        margin-top: var(--el-spacing-md);
+        padding: var(--el-spacing-md);
+        background: var(--el-fill-color-light);
+        border-radius: var(--el-border-radius-base);
+        
+        .option-param-list {
+          .option-param-item {
+            display: flex;
+            gap: var(--el-spacing-sm);
+            margin-bottom: var(--el-spacing-sm);
+            align-items: center;
+            
+            .option-param-name {
+              flex: 0 0 150px;
+            }
+            
+            .option-param-desc {
+              flex: 1;
+            }
+            
+            .option-param-type {
+              flex: 0 0 120px;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .add-option-btn {
+    width: 100%;
+    height: var(--el-button-size);
+    border: 2px dashed var(--el-border-color);
+    background: transparent;
+    
+    &:hover {
+      border-color: var(--el-color-primary);
+      color: var(--el-color-primary);
+      background: var(--el-fill-color-light);
     }
   }
 }

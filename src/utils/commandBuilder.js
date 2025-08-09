@@ -126,31 +126,60 @@ export class CommandBuilder {
    */
   addOption(option) {
     const opt = {
-      flag: option.flag,
+      shortName: option.shortName || '',
+      longName: option.longName || '',
       description: option.description || '',
-      required: option.required || false,
+      type: option.type || 'optional',
       hasValue: option.hasValue || false,
       valueType: option.valueType || 'string',
+      parameters: option.parameters || [],
       conflictsWith: option.conflictsWith || [],
       dependsOn: option.dependsOn || []
     }
 
+    // 获取有效的标志名称
+    const validFlag = opt.longName || opt.shortName
+    
     // 验证选项定义
-    if (!opt.flag) {
+    if (!validFlag) {
       throw new Error('选项标志不能为空')
     }
 
-    if (!opt.flag.startsWith('-')) {
+    if (!validFlag.startsWith('-')) {
       throw new Error('选项标志必须以 "-" 开头')
     }
 
     // 检查选项是否重复
-    if (this.options.find(o => o.flag === opt.flag)) {
-      throw new Error(`选项 "${opt.flag}" 已存在`)
+    const allFlags = [opt.shortName, opt.longName].filter(Boolean)
+    const existingOption = this.options.find(o => {
+      const existingFlags = [o.shortName, o.longName].filter(Boolean)
+      return allFlags.some(flag => existingFlags.includes(flag))
+    })
+    
+    if (existingOption) {
+      throw new Error(`选项标志已存在`)
     }
 
     this.options.push(opt)
     return this
+  }
+
+  /**
+   * 获取选项的主要标志（用于内部引用）
+   * @param {Object} option 选项对象
+   * @returns {string} 主要标志
+   */
+  getOptionFlag(option) {
+    return option.longName || option.shortName
+  }
+
+  /**
+   * 获取选项的所有标志
+   * @param {Object} option 选项对象
+   * @returns {Array} 所有标志数组
+   */
+  getOptionFlags(option) {
+    return [option.shortName, option.longName].filter(Boolean)
   }
 
   /**
@@ -211,7 +240,12 @@ export class CommandBuilder {
    * @param {string} flag 选项标志
    */
   toggleOption(flag) {
-    const option = this.options.find(o => o.flag === flag)
+    // 查找选项，支持新旧格式
+    const option = this.options.find(o => {
+      const flags = this.getOptionFlags(o)
+      return flags.includes(flag)
+    })
+    
     if (!option) {
       throw new Error(`选项 "${flag}" 不存在`)
     }
@@ -496,8 +530,17 @@ export class CommandBuilder {
 
     // 验证必选选项
     this.options.forEach(option => {
-      if (option.required && !this.selectedOptions.has(option.flag)) {
-        result.errors.push(`必选选项 "${option.flag}" 未选择`)
+      const optionFlag = this.getOptionFlag(option)
+      const optionFlags = this.getOptionFlags(option)
+      
+      if (option.type === 'required' && !optionFlags.some(flag => this.selectedOptions.has(flag))) {
+        result.errors.push(`必选选项 "${optionFlag}" 未选择`)
+        result.isValid = false
+      }
+      
+      // 检查不可选选项是否被使用
+      if (option.type === 'disabled' && optionFlags.some(flag => this.selectedOptions.has(flag))) {
+        result.errors.push(`不可选选项 "${optionFlag}" 被禁止使用`)
         result.isValid = false
       }
     })
