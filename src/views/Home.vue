@@ -132,7 +132,17 @@
       <div class="command-header">
         <div class="header-left">
           <h2>{{ headerTitle }}</h2>
-          <span class="command-count">{{ displayCommands.length }} 条命令</span>
+          <div class="header-stats">
+            <span class="command-count">{{ displayCommands.length }} / {{ totalCommands }} 条命令</span>
+            <span v-if="loadingStep === 1 && isBackgroundLoading" class="loading-status">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              后台加载中
+            </span>
+            <span v-else-if="loadingStep === 2 && displayCommands.length < totalCommands" class="loaded-status">
+              <el-icon><Check /></el-icon>
+              本页已加载完成
+            </span>
+          </div>
 
           <el-tag v-if="searchQuery" type="warning" size="small">
             搜索: {{ searchQuery }}
@@ -177,20 +187,54 @@
         </div>
       </div>
 
-      <div v-else class="command-list" ref="commandListRef">
-        <CommandCard
-          v-for="command in displayCommands"
-          :key="command.id"
-          :command="command"
-          @click="handleCommandClick"
-          @execute="handleCommandExecute"
-          @edit="handleCommandEdit"
-          @delete="handleCommandDelete"
-          @detail="handleCommandDetail"
-          @build="handleCommandBuild"
-          @restore="handleCommandRestore"
-          @manageCopy="handleManageCopy"
-        />
+      <div v-else>
+        <div class="command-list" ref="commandListRef">
+          <!-- 命令卡片列表 -->
+          <CommandCard
+            v-for="(command, index) in displayCommands"
+            :key="command.id"
+            :ref="el => setCommandCardRef(el, index)"
+            :command="command"
+            @click="handleCommandClick"
+            @execute="handleCommandExecute"
+            @edit="handleCommandEdit"
+            @delete="handleCommandDelete"
+            @detail="handleCommandDetail"
+            @build="handleCommandBuild"
+            @restore="handleCommandRestore"
+            @manageCopy="handleManageCopy"
+          />
+          
+          <!-- 渐进式加载状态指示器 -->
+          <div v-if="isBackgroundLoading && loadingStep === 1" class="background-loading">
+            <div class="loading-indicator">
+              <el-icon class="is-loading"><Loading /></el-icon>
+              <span>后台加载中...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 分页器 -->
+        <div class="pagination-container">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="pageSizes"
+            :total="totalCommands"
+            :background="true"
+            :disabled="isPageChanging || isInitialLoading"
+            layout="total, sizes, prev, pager, next, jumper"
+            class="command-pagination"
+            @current-change="handlePageChange"
+            @size-change="handlePageSizeChange"
+          />
+          
+          <!-- 分页切换加载指示器 -->
+          <div v-if="isPageChanging" class="pagination-loading">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>切换中...</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -270,7 +314,7 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue'
-import { FolderOpened, Search, Clock, Delete, Plus, DocumentAdd, Tools, Connection, RefreshLeft, Setting, View } from '@element-plus/icons-vue'
+import { FolderOpened, Search, Clock, Delete, Plus, DocumentAdd, Tools, Connection, RefreshLeft, Setting, View, Loading, Check } from '@element-plus/icons-vue'
 import CommandCard from '../components/CommandCard.vue'
 import CommandDetailModal from '../components/CommandDetailModal.vue'
 import CommandBuilderModal from '../components/CommandBuilderModal.vue'
@@ -320,6 +364,70 @@ const selectedTags = ref([])
 // 开发环境标志
 const isDev = import.meta.env.DEV
 
+// 分页相关状态
+const currentPage = ref(1)
+const pageSize = ref(15)
+const pageSizes = [10, 15, 20, 30, 50, 100]
+
+// 命令卡片引用管理
+const commandCardRefs = ref(new Map())
+const setCommandCardRef = (el, index) => {
+  if (el) {
+    commandCardRefs.value.set(index, el)
+  } else {
+    commandCardRefs.value.delete(index)
+  }
+}
+
+// 聚焦到第一个命令卡片
+const focusFirstCommand = () => {
+  // 如果没有命令，直接返回
+  if (displayCommands.value.length === 0) {
+    return
+  }
+  
+  nextTick(() => {
+    // 尝试聚焦第一个命令卡片
+    const firstCard = commandCardRefs.value.get(0)
+    if (firstCard && firstCard.$el) {
+      // 滚动到卡片位置
+      firstCard.$el.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start',
+        inline: 'nearest'
+      })
+      
+      // 添加聚焦效果
+      firstCard.$el.classList.add('focused')
+      setTimeout(() => {
+        if (firstCard.$el) {
+          firstCard.$el.classList.remove('focused')
+        }
+      }, 2000) // 2秒后移除聚焦效果
+      
+      console.log(`🎯 已聚焦到第 ${currentPage.value} 页的第一个命令`)
+    } else {
+      // 如果没有找到第一个卡片，滚动到命令列表顶部
+      const commandList = commandListRef.value
+      if (commandList) {
+        commandList.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest'
+        })
+        console.log(`📍 已滚动到命令列表顶部`)
+      }
+    }
+  })
+}
+
+// 渐进式加载状态
+const isInitialLoading = ref(true)
+const isBackgroundLoading = ref(false)
+const initialCommands = ref([])
+const backgroundCommands = ref([])
+const loadingStep = ref(0) // 0: 初始化, 1: 加载中, 2: 完成
+
 // 计算属性
 const headerTitle = computed(() => {
   if (commandStore.selectedCategory === 'recent') {
@@ -336,11 +444,111 @@ const headerTitle = computed(() => {
   return category ? category.name : '命令列表'
 })
 
-// 显示的命令列表（新设计：轻量高效）
+// 渐进式加载的命令处理（极致优化版本）
+const progressiveLoadCommands = async () => {
+  const startTime = performance.now()
+  
+  // 第一步：立即显示前15条，零延迟
+  loadingStep.value = 0
+  isInitialLoading.value = true
+  
+  // 快速获取当前页的基础数据
+  const start = (currentPage.value - 1) * pageSize.value
+  const quickLoadSize = Math.min(15, pageSize.value) // 始终先显示15条
+  
+  // 极速获取命令（直接使用全局索引）
+  let baseCommands = []
+  try {
+    const category = commandStore.selectedCategory
+    const query = commandStore.currentSearchQuery
+    const tags = commandStore.selectedTags
+    
+    // 直接从全局索引获取（最快路径）
+    if (commandStore.globalCategoryIndex.size > 0) {
+      baseCommands = commandStore.getCommandsFromIndex(category, query, tags) || []
+      console.log(`🚀 从全局索引获取命令: ${baseCommands.length} 条`)
+    } else {
+      // 回退到原有方式
+      baseCommands = commandStore.filteredCommands || []
+      console.log(`⚠️ 回退到filteredCommands: ${baseCommands.length} 条`)
+    }
+  } catch (error) {
+    console.warn('获取过滤命令失败:', error)
+    baseCommands = []
+  }
+  
+  // 立即显示快速加载的数据
+  const quickEnd = Math.min(start + quickLoadSize, baseCommands.length)
+  initialCommands.value = baseCommands.slice(start, quickEnd)
+  
+  isInitialLoading.value = false
+  loadingStep.value = 1
+  
+  // 第二步：后台加载完整页面数据（如果需要）
+  if (pageSize.value > quickLoadSize && baseCommands.length > quickEnd) {
+    isBackgroundLoading.value = true
+    
+    // 使用微任务进行异步处理
+    Promise.resolve().then(() => {
+      try {
+        const fullEnd = Math.min(start + pageSize.value, baseCommands.length)
+        backgroundCommands.value = baseCommands.slice(start, fullEnd)
+        
+        isBackgroundLoading.value = false
+        loadingStep.value = 2
+      } catch (error) {
+        console.warn('后台加载失败:', error)
+        isBackgroundLoading.value = false
+        loadingStep.value = 2
+      }
+    })
+  } else {
+    // 不需要后台加载，直接完成
+    backgroundCommands.value = initialCommands.value
+    loadingStep.value = 2
+  }
+  
+  // 性能监控
+  if (isDev) {
+    const duration = performance.now() - startTime
+    if (duration > 10) {
+      console.warn(`渐进式加载较慢: ${duration.toFixed(2)}ms，分类: ${commandStore.selectedCategory}，命令数: ${baseCommands.length}`)
+    } else {
+      console.log(`渐进式加载完成: ${duration.toFixed(2)}ms，显示: ${initialCommands.value.length} 条`)
+    }
+  }
+}
+
+// 显示的命令列表（渐进式版本）
 const displayCommands = computed(() => {
-  // 直接返回过滤后的命令，新的CommandCard设计无需参数升级
-  return commandStore.filteredCommands
+  if (loadingStep.value === 0) {
+    return [] // 初始化中
+  } else if (loadingStep.value === 1) {
+    return initialCommands.value // 快速显示
+  } else {
+    return backgroundCommands.value.length > 0 ? backgroundCommands.value : initialCommands.value // 完整数据或回退
+  }
 })
+
+// 移除缓存机制，直接使用全局索引
+// const cachedFilteredCommands = ref([])
+// const lastFilterKey = ref('')
+
+// 全部过滤后的命令（用于总数计算）
+const allFilteredCommands = computed(() => {
+  // 直接使用全局索引或store的filteredCommands
+  if (commandStore.globalCategoryIndex.size > 0) {
+    return commandStore.getCommandsFromIndex(
+      commandStore.selectedCategory,
+      commandStore.currentSearchQuery,
+      commandStore.selectedTags
+    ) || []
+  }
+  return commandStore.filteredCommands || []
+})
+
+// 总数量（用于分页器）
+const totalCommands = computed(() => allFilteredCommands.value.length)
 
 // 搜索功能
 const onSearchInput = () => {
@@ -585,6 +793,88 @@ const handleOpenSettings = () => {
   showSettings.value = true
 }
 
+// 分页器事件处理（优化版本）
+const isPageChanging = ref(false)
+
+const handlePageChange = async (page) => {
+  if (isPageChanging.value) return
+  
+  const startTime = performance.now()
+  
+  isPageChanging.value = true
+  currentPage.value = page
+  
+  // 立即触发渐进式加载
+  await progressiveLoadCommands()
+  
+  // 延迟重置标志，确保加载完成，然后聚焦
+  nextTick(() => {
+    isPageChanging.value = false
+    
+    // 聚焦到新页面的第一个命令卡片
+    focusFirstCommand()
+    
+    // 性能监控（仅开发环境且有性能问题时）
+    if (isDev) {
+      const endTime = performance.now()
+      const duration = endTime - startTime
+      if (duration > 50) { // 只有超过50ms才记录
+        console.warn(`分页切换较慢: ${duration.toFixed(2)}ms，页面: ${page}，显示: ${displayCommands.value.length} 条`)
+      }
+    }
+  })
+}
+
+const handlePageSizeChange = async (size) => {
+  if (isPageChanging.value) return
+  
+  isPageChanging.value = true
+  pageSize.value = size
+  currentPage.value = 1 // 改变页面大小时重置到第一页
+  
+  // 重新加载数据
+  await progressiveLoadCommands()
+  
+  nextTick(() => {
+    isPageChanging.value = false
+    
+    // 页面大小变化时也聚焦到第一个命令
+    focusFirstCommand()
+  })
+}
+
+// 监听搜索和过滤变化，智能重置并渐进加载
+let lastCategory = ''
+let lastQuery = ''
+let lastTagsStr = ''
+
+watch([() => commandStore.selectedCategory, () => commandStore.currentSearchQuery, () => commandStore.selectedTags], async (newValues) => {
+  const [newCategory, newQuery, newTags] = newValues
+  const newTagsStr = newTags.join(',')
+  
+  // 优化：避免字符串拼接，直接比较各个部分
+  const hasChanged = newCategory !== lastCategory || newQuery !== lastQuery || newTagsStr !== lastTagsStr
+  
+  if (hasChanged) {
+    lastCategory = newCategory
+    lastQuery = newQuery
+    lastTagsStr = newTagsStr
+    
+    // 重置到第一页
+    if (currentPage.value !== 1) {
+      currentPage.value = 1
+    }
+    
+    // 立即触发渐进式加载
+    await progressiveLoadCommands()
+    
+    // 搜索或筛选变化后也聚焦到第一个命令
+    if (hasChanged) {
+      focusFirstCommand()
+    }
+  }
+}, { deep: true })
+
 // 详情模态框事件处理
 const handleDetailEdit = (command) => {
   editingCommand.value = command
@@ -712,7 +1002,16 @@ watch(() => commandStore.editingCommand, (newCommand) => {
 })
 
 // 在组件挂载后初始化
-onMounted(() => {
+onMounted(async () => {
+  // 调试：检查store状态
+  console.log('Home.vue mounted - Store状态检查:', {
+    totalCommands: commandStore.commands.length,
+    filteredCommands: commandStore.filteredCommands.length,
+    selectedCategory: commandStore.selectedCategory,
+    globalIndexSize: commandStore.globalCategoryIndex.size,
+    indexMetadata: commandStore.indexMetadata
+  })
+  
   // 初始化快捷键
   keyboardStore.initShortcuts()
   
@@ -720,7 +1019,13 @@ onMounted(() => {
   searchQuery.value = commandStore.currentSearchQuery
   selectedTags.value = [...commandStore.selectedTags]
   
-
+  // 初始化监听变量
+  lastCategory = commandStore.selectedCategory
+  lastQuery = commandStore.currentSearchQuery
+  lastTagsStr = commandStore.selectedTags.join(',')
+  
+  // 立即开始渐进式加载
+  await progressiveLoadCommands()
   
   // 注册全局事件监听器
   window.addEventListener('focus-search', handleFocusSearch)
@@ -858,9 +1163,31 @@ onUnmounted(() => {
         color: var(--el-text-color-primary);
       }
       
+      .header-stats {
+        display: flex;
+        align-items: center;
+        gap: var(--el-spacing-sm);
+      }
+      
       .command-count {
         font-size: var(--el-font-size-small);
         color: var(--el-text-color-secondary);
+      }
+      
+      .loading-status {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: var(--el-font-size-small);
+        color: var(--el-color-primary);
+      }
+      
+      .loaded-status {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: var(--el-font-size-small);
+        color: var(--el-color-success);
       }
     }
     
@@ -875,6 +1202,16 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     gap: var(--el-spacing-md);
+    
+    // 命令卡片聚焦效果
+    :deep(.command-card.focused) {
+      animation: focusHighlight 2s ease-in-out;
+      transform: scale(1.02);
+      box-shadow: 0 4px 20px rgba(var(--el-color-primary-rgb), 0.3);
+      border: 2px solid var(--el-color-primary);
+      z-index: 10;
+      position: relative;
+    }
   }
 }
 
@@ -942,6 +1279,166 @@ onUnmounted(() => {
   
   .tag-section .tag-list {
     justify-content: center;
+  }
+  
+  .pagination-container {
+    margin-top: var(--el-spacing-md);
+  }
+}
+
+// 分页器样式
+.pagination-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: var(--el-spacing-lg);
+  padding: var(--el-spacing-lg) 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--el-bg-color-page);
+}
+
+.pagination-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--el-bg-color);
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color);
+  box-shadow: var(--el-box-shadow-light);
+  color: var(--el-color-primary);
+  font-size: 14px;
+  z-index: 10;
+}
+
+// 后台加载指示器
+.background-loading {
+  display: flex;
+  justify-content: center;
+  padding: var(--el-spacing-md) 0;
+  margin-top: var(--el-spacing-md);
+  border-top: 1px dashed var(--el-border-color-light);
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--el-fill-color-light);
+  border-radius: 6px;
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+  
+  .el-icon {
+    color: var(--el-color-primary);
+  }
+}
+
+.command-pagination {
+  :deep(.el-pagination) {
+    display: flex;
+    align-items: center;
+    gap: var(--el-spacing-sm);
+  }
+  
+  :deep(.el-pagination__total) {
+    color: var(--el-text-color-regular);
+    font-weight: 500;
+  }
+  
+  :deep(.el-pagination__sizes) {
+    .el-select {
+      .el-input__wrapper {
+        width: 85px;
+        border-radius: 6px;
+      }
+    }
+  }
+  
+  :deep(.el-pager) {
+    li {
+      min-width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--el-border-color-lighter);
+      background: var(--el-bg-color);
+      transition: all 0.2s ease;
+      
+      &:hover {
+        background: var(--el-color-primary-light-9);
+        border-color: var(--el-color-primary-light-5);
+      }
+      
+      &.is-active {
+        background: var(--el-color-primary);
+        border-color: var(--el-color-primary);
+        color: white;
+        font-weight: 600;
+      }
+    }
+  }
+  
+  :deep(.btn-prev),
+  :deep(.btn-next) {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--el-border-color-lighter);
+    background: var(--el-bg-color);
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: var(--el-color-primary-light-9);
+      border-color: var(--el-color-primary-light-5);
+      color: var(--el-color-primary);
+    }
+    
+    &:disabled {
+      background: var(--el-fill-color-light);
+      border-color: var(--el-border-color-lighter);
+      color: var(--el-text-color-disabled);
+      cursor: not-allowed;
+    }
+  }
+  
+  :deep(.el-pagination__jump) {
+    .el-input {
+      width: 60px;
+      
+      .el-input__wrapper {
+        border-radius: 6px;
+      }
+    }
+  }
+}
+
+// 聚焦高亮动画
+@keyframes focusHighlight {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--el-border-color);
+  }
+  20% {
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(var(--el-color-primary-rgb), 0.3);
+    border-color: var(--el-color-primary);
+  }
+  80% {
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(var(--el-color-primary-rgb), 0.3);
+    border-color: var(--el-color-primary);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--el-border-color);
   }
 }
 </style> 

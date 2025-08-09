@@ -94,6 +94,291 @@ export const useCommandStore = defineStore('command', () => {
   // ===== 预计算的分类索引 =====
   const categoryIndex = ref(new Map())
   
+  // ===== 全局分类索引系统 =====
+  const globalCategoryIndex = ref(new Map()) // 分类索引：categoryId -> 命令数组
+  const indexMetadata = ref({
+    version: '1.0',
+    lastUpdated: null,
+    totalCommands: 0,
+    categoryStats: {} // 每个分类的统计信息
+  })
+  const indexIsLoading = ref(false)
+  const indexIsDirty = ref(false) // 标记索引是否需要重建
+  
+  // ===== 分类索引持久化 =====
+  const CATEGORY_INDEX_KEY = 'command-category-index'
+  const INDEX_METADATA_KEY = 'command-index-metadata'
+  
+  /**
+   * 保存分类索引到本地存储
+   */
+  const saveCategoryIndex = () => {
+    try {
+      const indexData = {}
+      globalCategoryIndex.value.forEach((commands, categoryId) => {
+        indexData[categoryId] = commands
+      })
+      
+      // 使用utoolsDB或localStorage
+      if (typeof window !== 'undefined' && window.utoolsDB) {
+        window.utoolsDB.setItem(CATEGORY_INDEX_KEY, JSON.stringify(indexData))
+        window.utoolsDB.setItem(INDEX_METADATA_KEY, JSON.stringify(indexMetadata.value))
+      } else {
+        localStorage.setItem(CATEGORY_INDEX_KEY, JSON.stringify(indexData))
+        localStorage.setItem(INDEX_METADATA_KEY, JSON.stringify(indexMetadata.value))
+      }
+      
+      console.log('分类索引已保存到本地存储')
+    } catch (error) {
+      console.error('保存分类索引失败:', error)
+    }
+  }
+  
+  /**
+   * 从本地存储加载分类索引
+   */
+  const loadCategoryIndex = () => {
+    try {
+      let indexData = null
+      let metadata = null
+      
+      // 从utoolsDB或localStorage读取
+      if (typeof window !== 'undefined' && window.utoolsDB) {
+        const indexStr = window.utoolsDB.getItem(CATEGORY_INDEX_KEY)
+        const metaStr = window.utoolsDB.getItem(INDEX_METADATA_KEY)
+        indexData = indexStr ? JSON.parse(indexStr) : null
+        metadata = metaStr ? JSON.parse(metaStr) : null
+      } else {
+        const indexStr = localStorage.getItem(CATEGORY_INDEX_KEY)
+        const metaStr = localStorage.getItem(INDEX_METADATA_KEY)
+        indexData = indexStr ? JSON.parse(indexStr) : null
+        metadata = metaStr ? JSON.parse(metaStr) : null
+      }
+      
+      if (indexData && metadata) {
+        // 恢复Map结构
+        globalCategoryIndex.value.clear()
+        Object.entries(indexData).forEach(([categoryId, commands]) => {
+          globalCategoryIndex.value.set(categoryId, commands)
+        })
+        
+        indexMetadata.value = metadata
+        console.log(`分类索引已加载: ${Object.keys(indexData).length} 个分类，共 ${metadata.totalCommands} 条命令`)
+        return true
+      }
+    } catch (error) {
+      console.error('加载分类索引失败:', error)
+    }
+    return false
+  }
+  
+  /**
+   * 清除本地存储的分类索引
+   */
+  const clearCategoryIndex = () => {
+    try {
+      if (typeof window !== 'undefined' && window.utoolsDB) {
+        window.utoolsDB.removeItem(CATEGORY_INDEX_KEY)
+        window.utoolsDB.removeItem(INDEX_METADATA_KEY)
+      } else {
+        localStorage.removeItem(CATEGORY_INDEX_KEY)
+        localStorage.removeItem(INDEX_METADATA_KEY)
+      }
+      
+      globalCategoryIndex.value.clear()
+      indexMetadata.value = {
+        version: '1.0',
+        lastUpdated: null,
+        totalCommands: 0,
+        categoryStats: {}
+      }
+      console.log('分类索引已清除')
+    } catch (error) {
+      console.error('清除分类索引失败:', error)
+    }
+  }
+  
+  /**
+   * 构建全局分类索引
+   */
+  const buildGlobalCategoryIndex = async () => {
+    if (indexIsLoading.value) return
+    
+    console.log('开始构建全局分类索引...', {
+      totalCommands: commands.value.length,
+      categoriesCount: categories.value.length
+    })
+    indexIsLoading.value = true
+    
+    try {
+      const startTime = performance.now()
+      
+      // 清空现有索引
+      globalCategoryIndex.value.clear()
+      
+      // 获取所有分类ID
+      const allCategoryIds = ['all', 'recent', 'recycle-bin', ...categories.value.map(cat => cat.id)]
+      
+      // 为每个分类构建索引
+      for (const categoryId of allCategoryIds) {
+        let categoryCommands = []
+        
+                 if (categoryId === 'all') {
+           // 全部命令（排除已删除的）
+           categoryCommands = commands.value.filter(cmd => !cmd.isDeleted)
+                 } else if (categoryId === 'recent') {
+           // 最近使用的命令 - 从已有的命令中筛选最近使用的
+           const recentIds = recentCommands.value.map(cmd => cmd.id || cmd)
+           categoryCommands = commands.value.filter(cmd => 
+             !cmd.isDeleted && recentIds.includes(cmd.id)
+           )
+        } else if (categoryId === 'recycle-bin') {
+          // 回收站命令
+          categoryCommands = commands.value.filter(cmd => cmd.isDeleted)
+        } else {
+          // 普通分类
+          categoryCommands = commands.value.filter(cmd => {
+            return !cmd.isDeleted && cmd.category === categoryId
+          })
+        }
+        
+        // 存储到索引中
+        globalCategoryIndex.value.set(categoryId, categoryCommands)
+      }
+      
+      // 更新元数据
+      const stats = {}
+      globalCategoryIndex.value.forEach((commands, categoryId) => {
+        stats[categoryId] = {
+          count: commands.length,
+          lastUpdated: new Date().toISOString()
+        }
+      })
+      
+      indexMetadata.value = {
+        version: '1.0',
+        lastUpdated: new Date().toISOString(),
+        totalCommands: commands.value.length,
+        categoryStats: stats
+      }
+      
+      // 保存到本地存储
+      saveCategoryIndex()
+      
+      indexIsDirty.value = false
+      
+      const duration = performance.now() - startTime
+      console.log(`全局分类索引构建完成: ${globalCategoryIndex.value.size} 个分类，耗时 ${duration.toFixed(2)}ms`, {
+        indexSize: globalCategoryIndex.value.size,
+        indexKeys: Array.from(globalCategoryIndex.value.keys()),
+        commandCounts: Object.fromEntries(
+          Array.from(globalCategoryIndex.value.entries()).map(([key, cmds]) => [key, cmds.length])
+        )
+      })
+      
+    } catch (error) {
+      console.error('构建全局分类索引失败:', error)
+    } finally {
+      indexIsLoading.value = false
+    }
+  }
+  
+  /**
+   * 标记索引需要重建
+   */
+  const markIndexDirty = () => {
+    indexIsDirty.value = true
+  }
+  
+  /**
+   * 更新单个命令在索引中的位置
+   */
+  const updateCommandInIndex = (command, oldCategoryId = null) => {
+    try {
+      // 从旧分类中移除
+      if (oldCategoryId && globalCategoryIndex.value.has(oldCategoryId)) {
+        const oldCategoryCommands = globalCategoryIndex.value.get(oldCategoryId)
+        const index = oldCategoryCommands.findIndex(cmd => cmd.id === command.id)
+        if (index > -1) {
+          oldCategoryCommands.splice(index, 1)
+        }
+      }
+      
+      // 添加到新分类
+      const newCategoryId = command.isDeleted ? 'recycle-bin' : command.category
+      if (globalCategoryIndex.value.has(newCategoryId)) {
+        const categoryCommands = globalCategoryIndex.value.get(newCategoryId)
+        const existingIndex = categoryCommands.findIndex(cmd => cmd.id === command.id)
+        if (existingIndex > -1) {
+          // 更新现有命令
+          categoryCommands[existingIndex] = command
+        } else {
+          // 添加新命令
+          categoryCommands.push(command)
+        }
+      } else {
+        // 创建新分类
+        globalCategoryIndex.value.set(newCategoryId, [command])
+      }
+      
+      // 更新"全部"分类
+      if (globalCategoryIndex.value.has('all')) {
+        const allCommands = globalCategoryIndex.value.get('all')
+        const allIndex = allCommands.findIndex(cmd => cmd.id === command.id)
+        if (allIndex > -1) {
+          if (command.isDeleted) {
+            allCommands.splice(allIndex, 1) // 删除命令时从"全部"中移除
+          } else {
+            allCommands[allIndex] = command // 更新命令
+          }
+        } else if (!command.isDeleted) {
+          allCommands.push(command) // 新增命令时添加到"全部"
+        }
+      }
+      
+      // 保存索引
+      saveCategoryIndex()
+      
+    } catch (error) {
+      console.error('更新命令索引失败:', error)
+      markIndexDirty() // 标记需要重建
+    }
+  }
+  
+  /**
+   * 从索引中获取分类命令（替代原有的filteredCommands）
+   */
+  const getCommandsFromIndex = (categoryId, searchQuery = '', tags = []) => {
+    // 从全局索引获取基础命令列表
+    const baseCommands = globalCategoryIndex.value.get(categoryId) || []
+    
+    // 如果没有搜索和标签过滤，直接返回
+    if (!searchQuery && tags.length === 0) {
+      return baseCommands
+    }
+    
+    // 应用搜索和标签过滤
+    return baseCommands.filter(cmd => {
+      // 标签过滤
+      if (tags.length > 0) {
+        if (!cmd.tags || !tags.some(tag => cmd.tags.includes(tag))) {
+          return false
+        }
+      }
+      
+      // 搜索过滤
+      if (searchQuery) {
+        const lowerQuery = searchQuery.toLowerCase()
+        return cmd.name.toLowerCase().includes(lowerQuery) ||
+          cmd.description?.toLowerCase().includes(lowerQuery) ||
+          cmd.command.toLowerCase().includes(lowerQuery) ||
+          cmd.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))
+      }
+      
+      return true
+    })
+  }
+  
   // ===== 搜索配置 =====
   const fuseOptions = {
     keys: [
@@ -347,25 +632,23 @@ export const useCommandStore = defineStore('command', () => {
    * 过滤后的命令列表（使用预计算索引，无参数升级）
    */
   const filteredCommands = computed(() => {
-    console.time(`🔍 Store: filteredCommands 计算`)
     const category = selectedCategory.value
     const tags = selectedTags.value
     const query = currentSearchQuery.value.trim()
     
-    console.log(`🔍 Store: 开始过滤 - 分类: ${category}, 标签: ${tags.length}, 搜索: "${query}"`)
+    // 优先使用全局索引
+    if (globalCategoryIndex.value.size > 0) {
+      return getCommandsFromIndex(category, query, tags)
+    }
     
-    // 从索引中直接获取分类命令（瞬间完成！）
+    // 回退到原有的分类索引（兼容性）
     let filtered = categoryIndex.value.get(category) || []
-    console.log(`📊 Store: 从索引获取 ${category} 分类命令数量: ${filtered.length}`)
     
     // 对于基本分类切换，直接返回原始命令（最快）
     if (tags.length === 0 && !query) {
-      console.log(`⚡ Store: 无额外过滤，直接返回`)
-      console.timeEnd(`🔍 Store: filteredCommands 计算`)
       return filtered
     }
     
-    console.log(`🎯 Store: 需要额外过滤`)
     // 只在有搜索或标签时才进行过滤
     const result = filtered.filter(cmd => {
       // 标签过滤
@@ -387,8 +670,6 @@ export const useCommandStore = defineStore('command', () => {
       return true
     })
     
-    console.log(`📈 Store: 过滤后命令数量: ${result.length}`)
-    console.timeEnd(`🔍 Store: filteredCommands 计算`)
     return result
   })
   
@@ -667,6 +948,10 @@ export const useCommandStore = defineStore('command', () => {
     
     commands.value.push(enhancedCommand)
     updateCategoryIndex() // 立即更新索引
+    
+    // 更新全局索引
+    updateCommandInIndex(enhancedCommand)
+    
     saveToStorage()
   }
   
@@ -678,11 +963,18 @@ export const useCommandStore = defineStore('command', () => {
   const updateCommand = (commandId, updates) => {
     const index = commands.value.findIndex(cmd => cmd.id === commandId)
     if (index !== -1) {
+      const oldCommand = commands.value[index]
+      const oldCategoryId = oldCommand.category
+      
       commands.value[index] = {
-        ...commands.value[index],
+        ...oldCommand,
         ...updates,
         updatedAt: new Date().toISOString()
       }
+      
+      // 更新全局索引
+      updateCommandInIndex(commands.value[index], oldCategoryId)
+      
       saveToStorage()
     }
   }
@@ -705,7 +997,19 @@ export const useCommandStore = defineStore('command', () => {
   const permanentDeleteCommand = (commandId) => {
     const index = commands.value.findIndex(cmd => cmd.id === commandId)
     if (index !== -1) {
+      const command = commands.value[index]
       commands.value.splice(index, 1)
+      
+      // 从全局索引中移除
+      globalCategoryIndex.value.forEach((categoryCommands) => {
+        const cmdIndex = categoryCommands.findIndex(cmd => cmd.id === commandId)
+        if (cmdIndex > -1) {
+          categoryCommands.splice(cmdIndex, 1)
+        }
+      })
+      
+      // 保存索引
+      saveCategoryIndex()
       saveToStorage()
     }
   }
@@ -962,6 +1266,11 @@ export const useCommandStore = defineStore('command', () => {
       recentCommands: recentCommands.value,
       sortPreferences: sortPreferences.value,
       buildHistory: buildHistory.value.slice(0, 50), // 只保存最近50条
+      // 智能复制设置
+      defaultCopyCommands: defaultCopyCommands.value,
+      autoUpdateCopyCommand: autoUpdateCopyCommand.value,
+      frequentCommands: frequentCommands.value,
+      displaySettings: displaySettings.value,
       lastSaveDate: new Date().toISOString()
     }
     
@@ -975,7 +1284,7 @@ export const useCommandStore = defineStore('command', () => {
   /**
    * 从存储加载数据
    */
-  const loadFromStorage = () => {
+  const loadFromStorage = async () => {
     let userData = null
     
     if (window.utoolsDB) {
@@ -1008,6 +1317,31 @@ export const useCommandStore = defineStore('command', () => {
       recentCommands.value = userData.recentCommands || []
       sortPreferences.value = userData.sortPreferences || { categories: [], tags: [], commands: [] }
       buildHistory.value = userData.buildHistory || []
+      
+      // 恢复智能复制设置
+      if (userData.defaultCopyCommands) {
+        defaultCopyCommands.value = userData.defaultCopyCommands
+      }
+      if (userData.autoUpdateCopyCommand) {
+        autoUpdateCopyCommand.value = userData.autoUpdateCopyCommand
+      }
+      if (userData.frequentCommands) {
+        frequentCommands.value = userData.frequentCommands
+      }
+      if (userData.displaySettings) {
+        displaySettings.value = { ...displaySettings.value, ...userData.displaySettings }
+      }
+    }
+    
+    // 尝试加载全局分类索引
+    const indexLoaded = loadCategoryIndex()
+    
+    // 如果索引未加载成功或数据不匹配，重建索引
+    if (!indexLoaded || indexMetadata.value.totalCommands !== commands.value.length) {
+      console.log('全局分类索引需要重建...')
+      await buildGlobalCategoryIndex()
+    } else {
+      console.log('全局分类索引加载成功')
     }
   }
   
@@ -1096,14 +1430,31 @@ export const useCommandStore = defineStore('command', () => {
   
   // ===== 初始化 =====
   
-  // 加载存储的数据
-  loadFromStorage()
-  
-  // 初始化示例数据
+  // 同步初始化基础数据
   initializeData()
   
-  // 立即建立分类索引
+  // 异步初始化函数
+  const initializeStore = async () => {
+    try {
+      // 加载存储的数据（包括全局索引）
+      await loadFromStorage()
+      
+      // 更新分类索引（兼容性保证）
+      updateCategoryIndex()
+      
+      console.log('Store初始化完成')
+    } catch (error) {
+      console.error('Store初始化失败:', error)
+      // 发生错误时，至少确保基础分类索引可用
+      updateCategoryIndex()
+    }
+  }
+  
+  // 立即建立基础分类索引（确保UI可用）
   updateCategoryIndex()
+  
+  // 启动异步初始化
+  initializeStore()
   
   // ===== 返回接口 =====
   
@@ -1174,6 +1525,19 @@ export const useCommandStore = defineStore('command', () => {
     displaySettings,
     updateDisplaySettings,
     getDisplaySettings,
+    
+    // 全局分类索引
+    globalCategoryIndex,
+    indexMetadata,
+    indexIsLoading,
+    indexIsDirty,
+    buildGlobalCategoryIndex,
+    loadCategoryIndex,
+    saveCategoryIndex,
+    clearCategoryIndex,
+    updateCommandInIndex,
+    getCommandsFromIndex,
+    markIndexDirty,
     
     // 工具方法
     generateId,
