@@ -1,5 +1,10 @@
 <template>
-  <div class="command-card" :class="{ 'is-user-created': command.isUserCreated }">
+  <div 
+    class="command-card" 
+    :class="{ 'is-user-created': command.isUserCreated }"
+    @click="handleCardClick"
+    @dblclick.stop="handleCardDoubleClick"
+  >
     <!-- 主要内容区域 -->
     <div class="card-content">
       <!-- 作用 -->
@@ -115,32 +120,13 @@ const displaySettings = computed(() => commandStore.displaySettings)
 
 // 获取默认复制的完整命令
 const recentCommandText = computed(() => {
-  // 如果没有命令数据，返回空
-  if (!props.command) {
-    return '暂无命令'
-  }
-  
-  // 优先使用用户手动设置的默认复制命令
-  const defaultCopy = commandStore.getDefaultCopyCommand(props.command.id)
-  if (defaultCopy) {
-    return defaultCopy
-  }
-  
-  // 否则使用最近的构建命令
-  const buildHistory = commandStore.buildHistory || []
-  const recentBuild = buildHistory
-    .filter(item => item.templateId === props.command.id)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
-  
-  // 最后回退到原始命令模板
-  return recentBuild?.finalCommand || props.command.command || '暂无命令'
+  const defaultCommand = commandStore.getDefaultCopyCommand(props.command.id)
+  return defaultCommand || props.command?.command || ''
 })
 
-// 显示的最近命令（截断长命令）
+// 显示的命令文本
 const displayRecentCommand = computed(() => {
-  const maxLength = 80
-  const cmd = recentCommandText.value || ''
-  return cmd.length > maxLength ? cmd.substring(0, maxLength) + '...' : cmd
+  return recentCommandText.value || '点击构建命令'
 })
 
 // 分类名称
@@ -184,11 +170,39 @@ const parameterCount = computed(() => {
   return matches.length
 })
 
-// 事件处理器
-const handleCopyRecentCommand = () => {
-  const textToCopy = recentCommandText.value || props.command?.command || '暂无命令'
-  navigator.clipboard.writeText(textToCopy)
-  emit('copy', textToCopy)
+// 卡片点击处理
+const handleCardClick = () => {
+  if (!recentCommandText.value) {
+    // 如果没有默认完整命令，打开构建器
+    emit('build', props.command)
+  } else {
+    // 有默认完整命令，执行复制
+    handleCopyRecentCommand()
+  }
+}
+
+// 卡片双击处理
+const handleCardDoubleClick = () => {
+  if (!recentCommandText.value) {
+    // 如果没有默认完整命令，打开构建器
+    emit('build', props.command)
+  } else {
+    // 有默认完整命令，打开构建器
+    emit('build', props.command)
+  }
+}
+
+// 复制命令处理
+const handleCopyRecentCommand = (e) => {
+  if (e) {
+    e.stopPropagation()
+  }
+  if (recentCommandText.value) {
+    emit('copy', recentCommandText.value)
+  } else {
+    // 如果没有默认完整命令，打开构建器
+    emit('build', props.command)
+  }
 }
 
 const handleBuild = () => {
@@ -277,6 +291,13 @@ const handleManageCopy = () => {
     overflow: hidden;
     text-overflow: ellipsis;
     display: block;
+    
+    // 添加没有命令时的样式
+    &:empty::before {
+      content: '点击构建命令';
+      color: var(--el-text-color-secondary);
+      font-style: italic;
+    }
   }
 }
 
