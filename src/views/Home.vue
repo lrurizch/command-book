@@ -134,14 +134,6 @@
           <h2>{{ headerTitle }}</h2>
           <div class="header-stats">
             <span class="command-count">{{ displayCommands.length }} / {{ totalCommands }} 条命令</span>
-            <span v-if="loadingStep === 1 && isBackgroundLoading" class="loading-status">
-              <el-icon class="is-loading"><Loading /></el-icon>
-              后台加载中
-            </span>
-            <span v-else-if="loadingStep === 2 && displayCommands.length < totalCommands" class="loaded-status">
-              <el-icon><Check /></el-icon>
-              本页已加载完成
-            </span>
           </div>
 
           <el-tag v-if="searchQuery" type="warning" size="small">
@@ -204,14 +196,6 @@
             @restore="handleCommandRestore"
             @manageCopy="handleManageCopy"
           />
-          
-          <!-- 渐进式加载状态指示器 -->
-          <div v-if="isBackgroundLoading && loadingStep === 1" class="background-loading">
-            <div class="loading-indicator">
-              <el-icon class="is-loading"><Loading /></el-icon>
-              <span>后台加载中...</span>
-            </div>
-          </div>
         </div>
         
         <!-- 常规分页器 -->
@@ -222,35 +206,12 @@
             :page-sizes="pageSizes"
             :total="totalCommands"
             :background="true"
-            :disabled="isPageChanging || isInitialLoading"
+            :disabled="isPageChanging"
             layout="total, sizes, prev, pager, next, jumper"
             class="command-pagination"
             @current-change="handlePageChange"
             @size-change="handlePageSizeChange"
           />
-          
-                  <!-- 分页切换加载指示器 -->
-        <div v-if="isPageChanging" class="pagination-loading">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          <span>切换中...</span>
-        </div>
-        
-        <!-- 渐进式加载指示器（仅在分页模式下显示） -->
-        <div v-if="isProgressiveLoading && !commandStore.displaySettings.enableInfiniteScroll" class="progressive-loading">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          <span>正在加载命令，已加载 {{ loadedCount }} 条...</span>
-        </div>
-        </div>
-        
-        <!-- 无限滚动加载指示器 -->
-        <div v-if="commandStore.displaySettings.enableInfiniteScroll && infiniteScrollLoading" class="infinite-scroll-loading">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          <span>正在加载更多...</span>
-        </div>
-        
-        <!-- 无限滚动结束提示 -->
-        <div v-if="commandStore.displaySettings.enableInfiniteScroll && infiniteScrollDisabled" class="infinite-scroll-end">
-          <span>已加载全部内容</span>
         </div>
       </div>
     </div>
@@ -387,20 +348,21 @@ import Sortable from 'sortablejs'
 const commandStore = useCommandStore()
 const keyboardStore = useKeyboardStore()
 
-// 响应式状态
-const showParameterModal = ref(false)
-const showDeleteModal = ref(false)
-const showDetailModal = ref(false)
-const showBuilderModal = ref(false)
-const showBatchMigrateModal = ref(false)
-const showCopyModal = ref(false)
-const copyCommand = ref(null)
-const showSettings = ref(false)
-const showAddModal = ref(false)
-const showBatchCreateModal = ref(false)
-const showWorkflowModal = ref(false)
-const showAllTags = ref(false)
+// 基础配置
+const VIRTUAL_SCROLL_THRESHOLD = 100 // 超过100条命令启用虚拟滚动
+const VIRTUAL_ITEM_HEIGHT = 120 // 每个命令卡片的高度（px）
+const VIRTUAL_VISIBLE_COUNT = 15 // 可见区域显示的命令数量
 
+// 虚拟滚动状态
+const virtualScrollEnabled = ref(false)
+const virtualScrollTop = ref(0)
+const virtualVisibleCommands = ref([])
+const virtualStartIndex = ref(0)
+const virtualEndIndex = ref(VIRTUAL_VISIBLE_COUNT)
+
+// 组件状态
+const infiniteScrollCommands = ref([])
+const commandCardRefs = ref(new Map())
 const commandListRef = ref(null)
 const searchInput = ref(null)
 const selectedCommand = ref(null)
@@ -409,20 +371,89 @@ const builderCommand = ref(null)
 const deleteTarget = ref(null)
 const editingCommand = ref(null)
 
+// 模态框状态
+const showParameterModal = ref(false)
+const showDeleteModal = ref(false)
+const showDetailModal = ref(false)
+const showBuilderModal = ref(false)
+const showBatchMigrateModal = ref(false)
+const showCopyModal = ref(false)
+const showSettings = ref(false)
+const showAddModal = ref(false)
+const showBatchCreateModal = ref(false)
+const showWorkflowModal = ref(false)
+const showAllTags = ref(false)
+
 // 搜索和筛选状态
 const searchQuery = ref('')
 const selectedTags = ref([])
 
-// 开发环境标志
-const isDev = import.meta.env.DEV
-
-// 分页相关状态
+// 分页状态
 const currentPage = ref(1)
 const pageSize = ref(15)
 const pageSizes = [10, 15, 20, 30, 50, 100]
+const isPageChanging = ref(false)
+
+// 显示的命令列表（优化版本）
+const displayCommands = computed(() => {
+  if (virtualScrollEnabled.value && virtualVisibleCommands.value.length > 0) {
+    return virtualVisibleCommands.value
+  }
+  
+  if (commandStore.displaySettings.enableInfiniteScroll) {
+    if (infiniteScrollCommands.value.length > 0) {
+      return infiniteScrollCommands.value
+    }
+  }
+  
+  const allCommands = commandStore.getCommandsFromIndex(
+    commandStore.selectedCategory,
+    commandStore.currentSearchQuery,
+    commandStore.selectedTags
+  ) || []
+  
+  // 根据数据量决定是否启用虚拟滚动
+  const shouldUseVirtualScroll = allCommands.length > VIRTUAL_SCROLL_THRESHOLD
+  virtualScrollEnabled.value = shouldUseVirtualScroll
+  
+  if (shouldUseVirtualScroll) {
+    virtualStartIndex.value = 0
+    virtualEndIndex.value = Math.min(VIRTUAL_VISIBLE_COUNT, allCommands.length)
+    virtualVisibleCommands.value = allCommands.slice(virtualStartIndex.value, virtualEndIndex.value)
+    return virtualVisibleCommands.value
+  }
+  
+  return allCommands
+})
+
+// 虚拟滚动处理
+const handleVirtualScroll = () => {
+  if (!virtualScrollEnabled.value) return
+  
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+  const newStartIndex = Math.floor(scrollTop / VIRTUAL_ITEM_HEIGHT)
+  const newEndIndex = Math.min(
+    newStartIndex + VIRTUAL_VISIBLE_COUNT,
+    commandStore.getCommandsFromIndex(
+      commandStore.selectedCategory,
+      commandStore.currentSearchQuery,
+      commandStore.selectedTags
+    )?.length || 0
+  )
+  
+  if (newStartIndex !== virtualStartIndex.value) {
+    virtualStartIndex.value = newStartIndex
+    virtualEndIndex.value = newEndIndex
+    virtualVisibleCommands.value = commandStore.getCommandsFromIndex(
+      commandStore.selectedCategory,
+      commandStore.currentSearchQuery,
+      commandStore.selectedTags
+    )?.slice(newStartIndex, newEndIndex) || []
+    virtualScrollTop.value = scrollTop
+  }
+}
 
 // 命令卡片引用管理
-const commandCardRefs = ref(new Map())
 const setCommandCardRef = (el, index) => {
   if (el) {
     commandCardRefs.value.set(index, el)
@@ -433,33 +464,24 @@ const setCommandCardRef = (el, index) => {
 
 // 聚焦到第一个命令卡片
 const focusFirstCommand = () => {
-  // 如果没有命令，直接返回
-  if (displayCommands.value.length === 0) {
-    return
-  }
+  if (displayCommands.value.length === 0) return
   
   nextTick(() => {
-    // 尝试聚焦第一个命令卡片
     const firstCard = commandCardRefs.value.get(0)
     if (firstCard && firstCard.$el) {
-      // 滚动到卡片位置
       firstCard.$el.scrollIntoView({ 
         behavior: 'smooth', 
         block: 'start',
         inline: 'nearest'
       })
       
-      // 添加聚焦效果
       firstCard.$el.classList.add('focused')
       setTimeout(() => {
         if (firstCard.$el) {
           firstCard.$el.classList.remove('focused')
         }
-      }, 2000) // 2秒后移除聚焦效果
-      
-      console.log(`🎯 已聚焦到第 ${currentPage.value} 页的第一个命令`)
+      }, 2000)
     } else {
-      // 如果没有找到第一个卡片，滚动到命令列表顶部
       const commandList = commandListRef.value
       if (commandList) {
         commandList.scrollIntoView({ 
@@ -467,159 +489,53 @@ const focusFirstCommand = () => {
           block: 'start',
           inline: 'nearest'
         })
-        console.log(`📍 已滚动到命令列表顶部`)
       }
     }
   })
 }
 
-// 滚动监听处理
-const handleScroll = () => {
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-  const commandList = commandListRef.value
+// 分页器事件处理
+const handlePageChange = async (page) => {
+  if (isPageChanging.value) return
   
-  if (commandList) {
-    const commandListRect = commandList.getBoundingClientRect()
-    const isCommandListVisible = commandListRect.top < window.innerHeight && commandListRect.bottom > 0
-    
-    // 判断是否已经滚动过命令列表
-    isScrolled.value = scrollTop > 100
-    
-    // 显示固定分页器的条件：
-    // 1. 已经滚动
-    // 2. 命令列表在视窗内
-    // 3. 启用了分页器和粘性分页器
-    showStickyPagination.value = 
-      isScrolled.value && 
-      isCommandListVisible && 
-      commandStore.displaySettings.enablePagination && 
-      commandStore.displaySettings.stickyPagination
-  }
-}
-
-// 无限滚动处理
-const handleInfiniteScroll = () => {
-  // console.log('🔄 handleInfiniteScroll 被调用')
+  isPageChanging.value = true
+  currentPage.value = page
   
+  // 如果不是无限滚动模式，聚焦到第一个命令
   if (!commandStore.displaySettings.enableInfiniteScroll) {
-    return
-  }
-  if (infiniteScrollLoading.value || infiniteScrollDisabled.value) {
-    return
+    focusFirstCommand()
   }
   
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-  const scrollHeight = document.documentElement.scrollHeight
-  const clientHeight = window.innerHeight
-  
-  // console.log('📏 滚动位置信息:', {
-  //   scrollTop: Math.round(scrollTop),
-  //   clientHeight: Math.round(clientHeight),
-  //   scrollHeight: Math.round(scrollHeight),
-  //   距离底部: Math.round(scrollHeight - scrollTop - clientHeight),
-  //   触发阈值: 100,
-  //   是否触发: scrollTop + clientHeight >= scrollHeight - 100
-  // })
-  
-  // 滚动到底部时加载下一页
-  if (scrollTop + clientHeight >= scrollHeight - 100) {
-    const totalAvailable = totalCommands.value
-    const alreadyLoaded = infiniteScrollCommands.value.length
-    console.log(`📍 滚动到底部检测: 已加载 ${alreadyLoaded}, 总计 ${totalAvailable}`)
-    
-    if (alreadyLoaded < totalAvailable) {
-      infiniteScrollLoading.value = true
-      loadNextPage()
-    } else {
-      infiniteScrollDisabled.value = true
-      console.log('📄 无限滚动已加载全部数据')
-    }
-  }
+  nextTick(() => {
+    isPageChanging.value = false
+  })
 }
 
-// 加载下一页（无限滚动用）
-const loadNextPage = async () => {
-  try {
-    const nextPage = currentPage.value + 1
-    console.log(`🚀 开始加载第 ${nextPage} 页`)
-    
-    // 获取下一页的数据
-    let allCommands = []
-    const category = commandStore.selectedCategory
-    const query = commandStore.currentSearchQuery
-    const tags = commandStore.selectedTags
-    
-    console.log('📊 数据获取参数:', { category, query, tags: tags.length })
-    
-    // 从全局索引获取所有匹配的命令
-    if (commandStore.globalCategoryIndex.size > 0) {
-      allCommands = commandStore.getCommandsFromIndex(category, query, tags) || []
-      console.log(`🗂️ 从全局索引获取: ${allCommands.length} 条命令`)
-    } else {
-      allCommands = commandStore.filteredCommands || []
-      console.log(`📋 从filteredCommands获取: ${allCommands.length} 条命令`)
-    }
-    
-    // 计算下一页的数据范围（基于已加载的命令数量）
-    const alreadyLoaded = infiniteScrollCommands.value.length
-    const start = alreadyLoaded
-    const end = Math.min(start + pageSize.value, allCommands.length)
-    const nextPageCommands = allCommands.slice(start, end)
-    
-    console.log('📄 分页计算:', {
-      当前页: currentPage.value,
-      下一页: nextPage,
-      页面大小: pageSize.value,
-      已加载数量: alreadyLoaded,
-      开始位置: start,
-      结束位置: end,
-      下一页命令数: nextPageCommands.length,
-      总命令数: allCommands.length
-    })
-    
-    if (nextPageCommands.length > 0) {
-      // 追加新数据到无限滚动列表
-      infiniteScrollCommands.value.push(...nextPageCommands)
-      currentPage.value = nextPage
-      
-      console.log(`🔄 无限滚动加载第 ${nextPage} 页: ${nextPageCommands.length} 条命令`)
-    } else {
-      // 没有更多数据了
-      infiniteScrollDisabled.value = true
-      console.log(`📄 已加载全部内容，共 ${infiniteScrollCommands.value.length} 条命令`)
-    }
-    
-    infiniteScrollLoading.value = false
-  } catch (error) {
-    console.error('无限滚动加载失败:', error)
-    infiniteScrollLoading.value = false
+const handlePageSizeChange = async (size) => {
+  if (isPageChanging.value) return
+  
+  isPageChanging.value = true
+  pageSize.value = size
+  currentPage.value = 1
+  
+  // 如果不是无限滚动模式，聚焦到第一个命令
+  if (!commandStore.displaySettings.enableInfiniteScroll) {
+    focusFirstCommand()
   }
+  
+  nextTick(() => {
+    isPageChanging.value = false
+  })
 }
 
-// 渐进式加载状态
-const isInitialLoading = ref(true)
-const isBackgroundLoading = ref(false)
-const initialCommands = ref([])
-const backgroundCommands = ref([])
-const loadingStep = ref(0) // 0: 初始化, 1: 加载中, 2: 完成
+// 生命周期钩子
+onMounted(() => {
+  window.addEventListener('scroll', handleVirtualScroll, { passive: true })
+})
 
-// 无限滚动累积的命令列表
-const infiniteScrollCommands = ref([])
-
-// 渐进式加载配置
-const BATCH_SIZE = 1 // 每次加载1条，立即显示
-const progressiveCommands = ref([]) // 渐进式累积的命令
-const isProgressiveLoading = ref(false) // 是否正在渐进式加载
-const loadedCount = ref(0) // 已加载的命令数量
-
-// 预加载缓存
-const preloadCache = new Map() // 分类预加载缓存
-
-// 滚动和分页器状态
-const isScrolled = ref(false)
-const showStickyPagination = ref(false)
-const infiniteScrollLoading = ref(false)
-const infiniteScrollDisabled = ref(false)
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleVirtualScroll)
+})
 
 // 计算属性
 const headerTitle = computed(() => {
@@ -636,250 +552,6 @@ const headerTitle = computed(() => {
   const category = commandStore.categories.find(cat => cat.id === commandStore.selectedCategory)
   return category ? category.name : '命令列表'
 })
-
-// 渐进式批量加载命令（每次1条）
-const progressiveBatchLoad = async () => {
-  if (!commandStore.displaySettings.enableInfiniteScroll) {
-    console.log('🚀 开始渐进式逐条加载')
-  }
-  
-  // 生成缓存键
-  const cacheKey = `${commandStore.selectedCategory}-${commandStore.currentSearchQuery}-${commandStore.selectedTags.join(',')}`
-  
-  // 立即重置状态，无延迟
-  progressiveCommands.value = []
-  loadedCount.value = 0
-  isProgressiveLoading.value = true
-  
-  // 获取所有需要加载的命令（优化：先检查缓存）
-  let allCommands = []
-  
-  try {
-    // 首先检查缓存
-    if (preloadCache.has(cacheKey)) {
-      allCommands = preloadCache.get(cacheKey)
-      if (!commandStore.displaySettings.enableInfiniteScroll) {
-        console.log(`🚀 从缓存获取: ${allCommands.length} 条命令`)
-      }
-    } else {
-      // 直接从全局索引获取，这是最快的方式
-      if (commandStore.globalCategoryIndex.size > 0) {
-        allCommands = commandStore.getCommandsFromIndex(
-          commandStore.selectedCategory,
-          commandStore.currentSearchQuery,
-          commandStore.selectedTags
-        ) || []
-      } else {
-        allCommands = commandStore.filteredCommands || []
-      }
-      
-      // 缓存结果
-      preloadCache.set(cacheKey, allCommands)
-    }
-    
-    if (!commandStore.displaySettings.enableInfiniteScroll) {
-      console.log(`📊 总共需要加载: ${allCommands.length} 条命令`)
-    }
-    
-    // 如果没有数据，立即结束
-    if (allCommands.length === 0) {
-      isProgressiveLoading.value = false
-      return
-    }
-    
-    // 立即显示第一条命令，完全同步，无任何延迟
-    if (allCommands.length > 0) {
-      const firstCommand = allCommands[0]
-      progressiveCommands.value = [firstCommand] // 直接赋值，触发响应式更新
-      loadedCount.value = 1
-      
-      if (!commandStore.displaySettings.enableInfiniteScroll) {
-        console.log(`📦 立即显示第1条命令: ${firstCommand.name}`)
-      }
-    }
-    
-    // 继续加载剩余命令（从第二条开始）
-    for (let i = 1; i < allCommands.length; i++) {
-      const command = allCommands[i]
-      
-      // 立即添加到渐进式命令列表
-      progressiveCommands.value.push(command)
-      loadedCount.value = i + 1
-      
-      if (!commandStore.displaySettings.enableInfiniteScroll) {
-        console.log(`📦 加载第 ${i + 1}/${allCommands.length} 条命令: ${command.name}`)
-      }
-      
-      // 后续命令给UI一个更新的机会，让每条命令都能立即显示
-      // 无限滚动模式下极速加载，分页模式下让用户看到逐条加载的效果
-      const delay = commandStore.displaySettings.enableInfiniteScroll ? 1 : 50
-      await new Promise(resolve => setTimeout(resolve, delay))
-    }
-    
-    if (!commandStore.displaySettings.enableInfiniteScroll) {
-      console.log('✅ 渐进式加载完成')
-    }
-    
-    // 加载完成后，如果是无限滚动模式，同步到无限滚动数组
-    if (commandStore.displaySettings.enableInfiniteScroll) {
-      infiniteScrollCommands.value = [...progressiveCommands.value]
-      currentPage.value = 1
-    }
-    
-  } catch (error) {
-    console.error('❌ 渐进式加载失败:', error)
-  } finally {
-    isProgressiveLoading.value = false
-  }
-}
-
-// 渐进式加载的命令处理（极致优化版本）
-const progressiveLoadCommands = async () => {
-  const startTime = performance.now()
-  
-  // 第一步：立即显示前15条，零延迟
-  loadingStep.value = 0
-  isInitialLoading.value = true
-  
-  // 重置无限滚动相关状态
-  if (commandStore.displaySettings.enableInfiniteScroll) {
-    infiniteScrollCommands.value = []
-    infiniteScrollDisabled.value = false
-    infiniteScrollLoading.value = false
-  }
-  
-  // 快速获取当前页的基础数据
-  const start = (currentPage.value - 1) * pageSize.value
-  const quickLoadSize = Math.min(15, pageSize.value) // 始终先显示15条
-  
-  // 极速获取命令（直接使用全局索引）
-  let baseCommands = []
-  try {
-    const category = commandStore.selectedCategory
-    const query = commandStore.currentSearchQuery
-    const tags = commandStore.selectedTags
-    
-    // 直接从全局索引获取（最快路径）
-    if (commandStore.globalCategoryIndex.size > 0) {
-      baseCommands = commandStore.getCommandsFromIndex(category, query, tags) || []
-      console.log(`🚀 从全局索引获取命令: ${baseCommands.length} 条`)
-    } else {
-      // 回退到原有方式
-      baseCommands = commandStore.filteredCommands || []
-      console.log(`⚠️ 回退到filteredCommands: ${baseCommands.length} 条`)
-    }
-  } catch (error) {
-    console.warn('获取过滤命令失败:', error)
-    baseCommands = []
-  }
-  
-  // 立即显示快速加载的数据
-  const quickEnd = Math.min(start + quickLoadSize, baseCommands.length)
-  initialCommands.value = baseCommands.slice(start, quickEnd)
-  
-  // 为无限滚动模式初始化第一页数据
-  if (commandStore.displaySettings.enableInfiniteScroll) {
-    // 确保初始加载足够的数据以触发滚动
-    const minInitialSize = Math.max(pageSize.value, 20) // 至少20个命令
-    const firstPageEnd = Math.min(minInitialSize, baseCommands.length)
-    infiniteScrollCommands.value = baseCommands.slice(0, firstPageEnd)
-    // 重置到第一页
-    currentPage.value = 1
-    console.log('🔧 无限滚动初始化:', {
-      启用状态: commandStore.displaySettings.enableInfiniteScroll,
-      总命令数: baseCommands.length,
-      页面大小: pageSize.value,
-      最小初始大小: minInitialSize,
-      第一页结束位置: firstPageEnd,
-      初始化命令数: infiniteScrollCommands.value.length,
-      当前页: currentPage.value
-    })
-  }
-  
-  isInitialLoading.value = false
-  loadingStep.value = 1
-  
-  // 第二步：后台加载完整页面数据（如果需要）
-  if (pageSize.value > quickLoadSize && baseCommands.length > quickEnd) {
-    isBackgroundLoading.value = true
-    
-    // 使用微任务进行异步处理
-    Promise.resolve().then(() => {
-      try {
-        const fullEnd = Math.min(start + pageSize.value, baseCommands.length)
-        backgroundCommands.value = baseCommands.slice(start, fullEnd)
-        
-        isBackgroundLoading.value = false
-        loadingStep.value = 2
-      } catch (error) {
-        console.warn('后台加载失败:', error)
-        isBackgroundLoading.value = false
-        loadingStep.value = 2
-      }
-    })
-  } else {
-    // 不需要后台加载，直接完成
-    backgroundCommands.value = initialCommands.value
-    loadingStep.value = 2
-  }
-  
-  // 性能监控
-  if (isDev) {
-    const duration = performance.now() - startTime
-    if (duration > 10) {
-      console.warn(`渐进式加载较慢: ${duration.toFixed(2)}ms，分类: ${commandStore.selectedCategory}，命令数: ${baseCommands.length}`)
-    } else {
-      console.log(`渐进式加载完成: ${duration.toFixed(2)}ms，显示: ${initialCommands.value.length} 条`)
-    }
-  }
-}
-
-// 显示的命令列表（渐进式版本）
-const displayCommands = computed(() => {
-  const result = (() => {
-    // 渐进式加载模式：优先显示已加载的命令
-    if (progressiveCommands.value.length > 0) {
-      return progressiveCommands.value
-    }
-    
-    // 无限滚动模式：优先返回累积的命令列表
-    if (commandStore.displaySettings.enableInfiniteScroll) {
-      // 如果有累积的命令，返回累积列表
-      if (infiniteScrollCommands.value.length > 0) {
-        return infiniteScrollCommands.value
-      }
-      // 如果没有累积命令，返回当前加载的命令作为初始显示
-      if (loadingStep.value >= 1) {
-        return backgroundCommands.value.length > 0 ? backgroundCommands.value : initialCommands.value
-      }
-      return []
-    }
-    
-    // 常规分页模式
-    if (loadingStep.value === 0) {
-      return [] // 初始化中
-    } else if (loadingStep.value === 1) {
-      return initialCommands.value // 快速显示
-    } else {
-      return backgroundCommands.value.length > 0 ? backgroundCommands.value : initialCommands.value // 完整数据或回退
-    }
-  })()
-  
-  // console.log('📋 displayCommands 计算结果:', {
-  //   enableInfiniteScroll: commandStore.displaySettings.enableInfiniteScroll,
-  //   infiniteScrollCommands: infiniteScrollCommands.value.length,
-  //   loadingStep: loadingStep.value,
-  //   initialCommands: initialCommands.value.length,
-  //   backgroundCommands: backgroundCommands.value.length,
-  //   最终显示: result.length
-  // })
-  
-  return result
-})
-
-// 移除缓存机制，直接使用全局索引
-// const cachedFilteredCommands = ref([])
-// const lastFilterKey = ref('')
 
 // 全部过滤后的命令（用于总数计算）
 const allFilteredCommands = computed(() => {
@@ -1139,105 +811,6 @@ const handleManageCopy = (command) => {
 const handleOpenSettings = () => {
   showSettings.value = true
 }
-
-// 分页器事件处理（优化版本）
-const isPageChanging = ref(false)
-
-const handlePageChange = async (page) => {
-  if (isPageChanging.value) return
-  
-  const startTime = performance.now()
-  
-  isPageChanging.value = true
-  currentPage.value = page
-  
-  // 立即触发渐进式加载
-  await progressiveLoadCommands()
-  
-  // 延迟重置标志，确保加载完成，然后聚焦
-  nextTick(() => {
-    isPageChanging.value = false
-    
-    // 聚焦到新页面的第一个命令卡片（仅在分页模式下）
-    if (!commandStore.displaySettings.enableInfiniteScroll) {
-      focusFirstCommand()
-    }
-    
-    // 性能监控（仅开发环境且有性能问题时）
-    if (isDev) {
-      const endTime = performance.now()
-      const duration = endTime - startTime
-      if (duration > 50) { // 只有超过50ms才记录
-        console.warn(`分页切换较慢: ${duration.toFixed(2)}ms，页面: ${page}，显示: ${displayCommands.value.length} 条`)
-      }
-    }
-  })
-}
-
-const handlePageSizeChange = async (size) => {
-  if (isPageChanging.value) return
-  
-  isPageChanging.value = true
-  pageSize.value = size
-  currentPage.value = 1 // 改变页面大小时重置到第一页
-  
-  // 重新加载数据
-  await progressiveLoadCommands()
-  
-  nextTick(() => {
-    isPageChanging.value = false
-    
-    // 页面大小变化时也聚焦到第一个命令（仅在分页模式下）
-    if (!commandStore.displaySettings.enableInfiniteScroll) {
-      focusFirstCommand()
-    }
-  })
-}
-
-// 监听搜索和过滤变化，智能重置并渐进加载
-let lastCategory = ''
-let lastQuery = ''
-let lastTagsStr = ''
-
-watch([() => commandStore.selectedCategory, () => commandStore.currentSearchQuery, () => commandStore.selectedTags], async (newValues) => {
-  const [newCategory, newQuery, newTags] = newValues
-  const newTagsStr = newTags.join(',')
-  
-  // 优化：避免字符串拼接，直接比较各个部分
-  const hasChanged = newCategory !== lastCategory || newQuery !== lastQuery || newTagsStr !== lastTagsStr
-  
-  if (hasChanged) {
-    lastCategory = newCategory
-    lastQuery = newQuery
-    lastTagsStr = newTagsStr
-    
-    // 重置到第一页
-    if (currentPage.value !== 1) {
-      currentPage.value = 1
-    }
-    
-    // 重置无限滚动状态
-    infiniteScrollDisabled.value = false
-    infiniteScrollLoading.value = false
-    infiniteScrollCommands.value = []
-    
-    // 清理过期缓存（保留最近的10个缓存条目）
-    if (preloadCache.size > 10) {
-      const entries = Array.from(preloadCache.entries())
-      preloadCache.clear()
-      // 保留最近的5个
-      entries.slice(-5).forEach(([key, value]) => preloadCache.set(key, value))
-    }
-    
-    // 立即触发渐进式批量加载
-    await progressiveBatchLoad()
-    
-    // 搜索或筛选变化后聚焦到第一个命令（仅在分页模式下）
-    if (hasChanged && !commandStore.displaySettings.enableInfiniteScroll) {
-      focusFirstCommand()
-    }
-  }
-}, { deep: true })
 
 // 详情模态框事件处理
 const handleDetailEdit = (command) => {

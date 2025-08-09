@@ -635,7 +635,7 @@ export const useCommandStore = defineStore('command', () => {
     for (const cmd of commands.value) {
       if (cmd.isDeleted) {
         recycleBinCommands.push(cmd)
-      } else {
+    } else {
         allCommands.push(cmd)
         
         // 直接操作，避免重复检查
@@ -688,22 +688,22 @@ export const useCommandStore = defineStore('command', () => {
     
     // 只在有搜索或标签时才进行过滤
     const result = filtered.filter(cmd => {
-      // 标签过滤
+    // 标签过滤
       if (tags.length > 0) {
         if (!cmd.tags || !tags.some(tag => cmd.tags.includes(tag))) {
           return false
         }
-      }
-      
-      // 搜索过滤
+    }
+    
+    // 搜索过滤
       if (query) {
         const lowerQuery = query.toLowerCase()
         return cmd.name.toLowerCase().includes(lowerQuery) ||
           cmd.description?.toLowerCase().includes(lowerQuery) ||
           cmd.command.toLowerCase().includes(lowerQuery) ||
           cmd.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))
-      }
-      
+    }
+    
       return true
     })
     

@@ -69,34 +69,34 @@
             <el-icon><Grid /></el-icon>
             {{ parameterCount }} 个参数
           </span>
-        </div>
+          </div>
       </div>
       
       <!-- 操作按钮 -->
       <div class="actions-section">
-        <el-tooltip content="复制命令" placement="top">
+          <el-tooltip content="复制命令" placement="top">
           <el-button :icon="CopyDocument" size="small" circle @click.stop="handleCopyRecentCommand" />
-        </el-tooltip>
-        
-        <el-dropdown @click.stop placement="bottom-end" trigger="click">
+          </el-tooltip>
+          
+          <el-dropdown @click.stop placement="bottom-end" trigger="click">
           <el-button :icon="More" size="small" circle />
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item @click="handleDetail" :icon="View">
-                查看详情
-              </el-dropdown-item>
-              <el-dropdown-item @click="handleEdit" :icon="Edit">
-                编辑命令
-              </el-dropdown-item>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="handleDetail" :icon="View">
+                  查看详情
+                </el-dropdown-item>
+                <el-dropdown-item @click="handleEdit" :icon="Edit">
+                  编辑命令
+                </el-dropdown-item>
               <el-dropdown-item @click="handleExecute" :icon="CaretRight">
                 快速执行
               </el-dropdown-item>
               <el-dropdown-item @click="handleManageCopy" :icon="Setting">
                 管理复制命令
               </el-dropdown-item>
-              <el-dropdown-item @click="handleDuplicate" :icon="DocumentCopy">
-                复制为新命令
-              </el-dropdown-item>
+                <el-dropdown-item @click="handleDuplicate" :icon="DocumentCopy">
+                  复制为新命令
+                </el-dropdown-item>
               <el-dropdown-item 
                 @click="handleDelete" 
                 :icon="Delete"
@@ -104,10 +104,10 @@
                 style="color: var(--el-color-danger)"
               >
                 删除命令
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
       </div>
     </div>
   </div>
@@ -123,7 +123,7 @@ import {
   Edit, 
   CaretRight, 
   DocumentCopy, 
-  Delete,
+  Delete, 
   Setting,
   TrendCharts,
   Grid
@@ -263,18 +263,18 @@ const handleManageCopy = () => {
   transition: all 0.2s ease;
   cursor: pointer;
 }
-
+  
 .command-card:hover {
-  border-color: var(--el-color-primary);
+    border-color: var(--el-color-primary);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
+  }
+  
 .command-card.is-user-created {
-  border-left: 4px solid var(--el-color-warning);
-}
-
+    border-left: 4px solid var(--el-color-warning);
+  }
+  
 .card-content {
-  display: flex;
+    display: flex;
   flex-direction: column;
   gap: 12px;
 }
@@ -285,18 +285,18 @@ const handleManageCopy = () => {
 
 /* 主要内容区域 */
 .main-content {
-  flex: 1;
+      flex: 1;
 }
-
-.command-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--el-text-color-primary);
+      
+      .command-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--el-text-color-primary);
   margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
 .compact-mode .command-name {
   font-size: 14px;
@@ -327,12 +327,12 @@ const handleManageCopy = () => {
   padding: 6px 10px;
   font-size: 13px;
 }
-
-.command-desc {
+      
+      .command-desc {
   font-size: 13px;
-  color: var(--el-text-color-secondary);
-  line-height: 1.4;
-}
+        color: var(--el-text-color-secondary);
+        line-height: 1.4;
+      }
 
 .compact-mode .command-desc {
   font-size: 12px;
@@ -347,30 +347,30 @@ const handleManageCopy = () => {
 }
 
 .info-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
 }
-
+        
 .tags-container {
-  display: flex;
+          display: flex;
   flex-wrap: wrap;
   gap: 4px;
-}
-
+    }
+    
 .tag-item {
   margin: 0;
 }
 
 .usage-stats,
 .parameter-info {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+          display: flex;
+          align-items: center;
+            gap: 4px;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-
+              color: var(--el-text-color-secondary);
+            }
+            
 /* 操作按钮区域 */
 .actions-section {
   display: flex;
