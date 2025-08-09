@@ -717,22 +717,37 @@ const handleCommandClick = (command) => {
   }
 }
 
-const onCopyCommand = async (commandText) => {
+const onCopyCommand = async (command) => {
   try {
-    if (typeof commandText === 'string') {
-      // 直接复制传入的命令文本
-      await navigator.clipboard.writeText(commandText)
-      showCopySuccess()
-      toast.success('命令已复制')
-    } else if (commandText.command) {
-      // 复制命令对象中的命令文本
-      await navigator.clipboard.writeText(commandText.command)
-      commandStore.updateCommandStats(commandText.id)
-      showCopySuccess()
-      toast.success(`已复制: ${commandText.name}`)
+    if (!command) {
+      toast.error('无效的命令')
+      return
+    }
+
+    let textToCopy = ''
+    let commandName = ''
+
+    if (typeof command === 'string') {
+      // 直接复制命令文本
+      textToCopy = command
+    } else if (command.command) {
+      // 从命令对象中获取命令文本
+      textToCopy = commandStore.getDefaultCopyCommand(command.id) || command.command
+      commandName = command.name
+      commandStore.updateCommandStats(command.id)
     } else {
       toast.error('无效的命令')
+      return
     }
+
+    if (!textToCopy) {
+      toast.error('命令内容为空')
+      return
+    }
+
+    await navigator.clipboard.writeText(textToCopy)
+    showCopySuccess()
+    toast.success(commandName ? `已复制: ${commandName}` : '命令已复制')
   } catch (error) {
     toast.error('复制失败: ' + error.message)
   }

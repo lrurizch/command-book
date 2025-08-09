@@ -143,7 +143,7 @@ const handleCardClick = () => {
     emit('build', props.command)
   } else {
     // 有默认完整命令，执行复制
-    emit('copy', recentCommandText.value)
+    emit('copy', props.command)
   }
 }
 
@@ -159,7 +159,7 @@ const handleCopyRecentCommand = (e) => {
     e.stopPropagation()
   }
   if (recentCommandText.value) {
-    emit('copy', recentCommandText.value)
+    emit('copy', props.command)
   } else {
     // 如果没有默认完整命令，打开构建器
     emit('build', props.command)
