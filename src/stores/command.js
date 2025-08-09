@@ -88,7 +88,11 @@ export const useCommandStore = defineStore('command', () => {
     showTags: false,              // 显示标签
     showUsageStats: false,        // 显示使用统计
     showParameters: false,        // 显示参数信息
-    compactMode: false            // 紧凑模式
+    compactMode: false,           // 紧凑模式
+    // 浏览模式设置
+    enablePagination: false,      // 启用分页器（默认关闭）
+    stickyPagination: true,       // 滚动时固定分页器
+    enableInfiniteScroll: true    // 启用无限滚动（默认主要模式）
   })
   
   // ===== 预计算的分类索引 =====

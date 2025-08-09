@@ -117,6 +117,45 @@
             </div>
           </div>
 
+          <div class="setting-group">
+            <h4>浏览模式</h4>
+            <div class="setting-item">
+              <el-switch
+                v-model="localDisplaySettings.enableInfiniteScroll"
+                active-text="无限滚动模式（推荐）"
+                @change="updateDisplaySettings"
+              />
+              <p class="setting-desc">默认模式：滚动到底部时自动加载更多内容，支持连续浏览所有命令</p>
+            </div>
+            
+            <div class="setting-item">
+              <el-switch
+                v-model="localDisplaySettings.enablePagination"
+                active-text="显示传统分页器"
+                @change="updateDisplaySettings"
+              />
+              <p class="setting-desc">可选：在命令列表底部显示分页导航器，适合习惯传统分页的用户</p>
+            </div>
+            
+            <div class="setting-item" v-if="localDisplaySettings.enablePagination">
+              <el-switch
+                v-model="localDisplaySettings.stickyPagination"
+                active-text="滚动时固定分页器"
+                @change="updateDisplaySettings"
+              />
+              <p class="setting-desc">滚动页面时在屏幕底部显示固定的快捷分页器</p>
+            </div>
+            
+            <div class="browse-mode-tip">
+              <el-alert
+                :title="`当前浏览模式：${getBrowseModeText()}`"
+                type="info"
+                :closable="false"
+                show-icon
+              />
+            </div>
+          </div>
+
           <div class="preset-section">
             <h4>快速预设</h4>
             <div class="preset-buttons">
@@ -318,6 +357,27 @@ const updateDisplaySettings = () => {
   commandStore.updateDisplaySettings(localDisplaySettings.value)
 }
 
+// 获取当前浏览模式的描述文本
+const getBrowseModeText = () => {
+  const infinite = localDisplaySettings.value.enableInfiniteScroll
+  const pagination = localDisplaySettings.value.enablePagination
+  const sticky = localDisplaySettings.value.stickyPagination
+  
+  if (infinite && pagination && sticky) {
+    return '增强模式（无限滚动 + 传统分页器 + 固定分页器）'
+  } else if (infinite && pagination) {
+    return '混合模式（无限滚动 + 传统分页器）'
+  } else if (infinite) {
+    return '无限滚动模式（默认推荐）'
+  } else if (pagination && sticky) {
+    return '传统分页模式（含固定分页器）'
+  } else if (pagination) {
+    return '传统分页模式'
+  } else {
+    return '静态显示模式（无浏览功能）'
+  }
+}
+
 // 更新行为设置
 const updateBehaviorSettings = () => {
   // 这里可以添加行为设置的保存逻辑
@@ -517,6 +577,18 @@ const handleClose = () => {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   line-height: 1.4;
+}
+
+.browse-mode-tip {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--el-fill-color-extra-light);
+  border-radius: 6px;
+}
+
+.browse-mode-tip .el-alert {
+  --el-alert-padding: 8px 12px;
+  --el-alert-border-radius: 4px;
 }
 
 .preset-section {
