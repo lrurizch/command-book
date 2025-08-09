@@ -533,6 +533,32 @@ export const useCommandStore = defineStore('command', () => {
    * @returns {string} 默认复制的完整命令
    */
   const getDefaultCopyCommand = (commandId) => {
+    // 查找命令对象
+    const command = commands.value.find(cmd => cmd.id === commandId)
+    
+    if (command && command.commonCommands && command.commonCommands.length > 0) {
+      // 优先使用标记为默认的常用完整命令
+      const defaultCommand = command.commonCommands.find(cmd => cmd.isDefault)
+      if (defaultCommand && defaultCommand.command) {
+        return defaultCommand.command
+      }
+      
+      // 如果没有默认标记，使用最近使用的常用命令
+      const sortedCommands = command.commonCommands
+        .filter(cmd => cmd.command && cmd.command.trim())
+        .sort((a, b) => {
+          // 按使用次数和最后使用时间排序
+          if (a.usageCount !== b.usageCount) {
+            return (b.usageCount || 0) - (a.usageCount || 0)
+          }
+          return new Date(b.lastUsed || 0) - new Date(a.lastUsed || 0)
+        })
+      
+      if (sortedCommands.length > 0) {
+        return sortedCommands[0].command
+      }
+    }
+    
     // 如果手动设置了默认复制命令，使用设置的命令
     if (defaultCopyCommands.value[commandId]) {
       return defaultCopyCommands.value[commandId]
@@ -584,6 +610,34 @@ export const useCommandStore = defineStore('command', () => {
    */
   const getFrequentCommands = (commandId) => {
     return frequentCommands.value[commandId] || []
+  }
+
+  /**
+   * 更新常用完整命令的使用统计
+   * @param {string} commandId 命令ID
+   * @param {string} executedCommand 执行的命令
+   */
+  const updateCommonCommandUsage = (commandId, executedCommand) => {
+    const command = commands.value.find(cmd => cmd.id === commandId)
+    if (!command || !command.commonCommands) return
+
+    // 查找匹配的常用命令
+    const commonCommand = command.commonCommands.find(cmd => cmd.command === executedCommand)
+    if (commonCommand) {
+      commonCommand.usageCount = (commonCommand.usageCount || 0) + 1
+      commonCommand.lastUsed = new Date().toISOString()
+      
+      // 如果没有设置默认命令，自动将最常用的设为默认
+      const hasDefault = command.commonCommands.some(cmd => cmd.isDefault)
+      if (!hasDefault) {
+        // 重置所有默认状态
+        command.commonCommands.forEach(cmd => cmd.isDefault = false)
+        // 设置当前命令为默认
+        commonCommand.isDefault = true
+      }
+      
+      saveToStorage()
+    }
   }
   
   /**
@@ -1557,6 +1611,7 @@ export const useCommandStore = defineStore('command', () => {
     setAutoUpdateCopyCommand,
     addFrequentCommand,
     getFrequentCommands,
+    updateCommonCommandUsage,
     
     // 显示设置
     displaySettings,

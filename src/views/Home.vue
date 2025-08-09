@@ -175,18 +175,21 @@
       <div v-else>
         <div class="command-list" ref="commandListRef">
           <!-- 命令卡片列表 -->
-          <CommandCard
+        <CommandCard
             v-for="(command, index) in displayCommands"
-            :key="command.id"
+          :key="command.id"
             :ref="el => setCommandCardRef(el, index)"
-            :command="command"
-            @click="handleCommandClick"
-            @execute="handleCommandExecute"
-            @edit="handleCommandEdit"
-            @delete="handleCommandDelete"
-            @detail="handleCommandDetail"
-            @build="handleCommandBuild"
-            @restore="handleCommandRestore"
+          :command="command"
+          @click="handleCommandClick"
+          @copy="onCopyCommand"
+          @execute="handleCommandExecute"
+          @edit="handleCommandEdit"
+          @delete="handleCommandDelete"
+          @detail="handleCommandDetail"
+          @build="handleCommandBuild"
+          @restore="handleCommandRestore"
+          @duplicate="handleCommandDuplicate"
+          @showCommonCommands="handleShowCommonCommands"
             @manageCopy="handleManageCopy"
           />
         </div>
@@ -204,7 +207,7 @@
             class="command-pagination"
             @current-change="handlePageChange"
             @size-change="handlePageSizeChange"
-          />
+        />
         </div>
       </div>
     </div>
@@ -280,6 +283,14 @@
     <SettingsModal
       v-model="showSettings"
     />
+
+    <!-- 常用完整命令模态框 -->
+    <CommonCommandsModal
+      v-if="commonCommandsCommand"
+      v-model:show="showCommonCommandsModal"
+      :command="commonCommandsCommand"
+      @commandCopied="handleCommandCopied"
+    />
     
     <!-- 固定分页器 -->
     <Transition name="sticky-pagination">
@@ -331,6 +342,7 @@ import ParameterModal from '../components/ParameterModal.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import BatchMigrateModal from '../components/BatchMigrateModal.vue'
 import CopyCommandModal from '../components/CopyCommandModal.vue'
+import CommonCommandsModal from '../components/CommonCommandsModal.vue'
 import SettingsModal from '../components/SettingsModal.vue'
 
 import { useCommandStore } from '../stores/command'
@@ -363,6 +375,7 @@ const detailCommand = ref(null)
 const builderCommand = ref(null)
 const deleteTarget = ref(null)
 const editingCommand = ref(null)
+const commonCommandsCommand = ref(null)
 
 // 模态框状态
 const showParameterModal = ref(false)
@@ -375,6 +388,7 @@ const showSettings = ref(false)
 const showAddModal = ref(false)
 const showBatchCreateModal = ref(false)
 const showWorkflowModal = ref(false)
+const showCommonCommandsModal = ref(false)
 const showAllTags = ref(false)
 
 // 搜索和筛选状态
@@ -734,7 +748,16 @@ const onCopyCommand = async (command) => {
       // 从命令对象中获取命令文本
       textToCopy = commandStore.getDefaultCopyCommand(command.id) || command.command
       commandName = command.name
+      
+      console.log('复制命令:', commandName, '内容:', textToCopy)
+      
+      // 更新命令使用统计
       commandStore.updateCommandStats(command.id)
+      
+      // 如果复制的是常用完整命令，更新常用命令的使用统计
+      if (textToCopy && textToCopy !== command.command) {
+        commandStore.updateCommonCommandUsage(command.id, textToCopy)
+      }
     } else {
       toast.error('无效的命令')
       return
@@ -816,6 +839,35 @@ const handleCommandRestore = (command) => {
   } catch (error) {
     console.error('恢复命令失败:', error)
     toast.error('恢复失败，请重试')
+  }
+}
+
+const handleCommandDuplicate = (command) => {
+  const duplicatedCommand = {
+    ...command,
+    id: commandStore.generateId(),
+    name: `${command.name} (副本)`,
+    isUserCreated: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    usageCount: 0,
+    lastUsed: null
+  }
+  
+  commandStore.addCommand(duplicatedCommand)
+  toast.success(`命令 "${command.name}" 已复制为新命令`)
+}
+
+const handleShowCommonCommands = (command) => {
+  console.log('显示常用命令弹窗:', command.name)
+  commonCommandsCommand.value = command
+  showCommonCommandsModal.value = true
+}
+
+const handleCommandCopied = (commandText) => {
+  // 更新命令使用统计
+  if (commonCommandsCommand.value) {
+    commandStore.updateCommandStats(commonCommandsCommand.value.id)
   }
 }
 
@@ -1128,10 +1180,10 @@ onUnmounted(() => {
         display: flex;
         align-items: center;
         gap: var(--el-spacing-sm);
-        
-        .command-count {
-          font-size: var(--el-font-size-small);
-          color: var(--el-text-color-secondary);
+      
+      .command-count {
+        font-size: var(--el-font-size-small);
+        color: var(--el-text-color-secondary);
         }
       }
     }

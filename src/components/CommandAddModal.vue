@@ -11,13 +11,13 @@
       <div class="form-section">
         <div class="form-group">
           <label for="command-name" class="form-label">
-            命令名 <span class="required">*</span>
+            命令名称 <span class="required">*</span>
             <span v-if="isEditing && getFieldChanges().commandName" class="changed-indicator">已修改</span>
           </label>
           <el-input
             id="command-name"
             v-model="form.commandName"
-            placeholder="输入基础命令名 (如: git, npm, docker)"
+            placeholder="输入命令名称 (如: Git提交代码, NPM安装依赖)"
             class="command-input"
             :class="{ 'field-changed': isEditing && getFieldChanges().commandName }"
           />
@@ -38,10 +38,40 @@
             </div>
           </div>
         </div>
+
+        <div class="form-group">
+          <label for="base-command" class="form-label">
+            基础命令 <span class="required">*</span>
+            <span v-if="isEditing && getFieldChanges().baseCommand" class="changed-indicator">已修改</span>
+          </label>
+          <el-input
+            id="base-command"
+            v-model="form.baseCommand"
+            placeholder="输入基础命令 (如: git, npm, docker)"
+            class="command-input"
+            :class="{ 'field-changed': isEditing && getFieldChanges().baseCommand }"
+          />
+          <!-- 显示原始值对比 -->
+          <div v-if="isEditing && getFieldChanges().baseCommand" class="comparison-info">
+            <div class="original-value">
+              <span class="label">原始值:</span>
+              <span class="original-text">{{ originalData.baseCommand || '无' }}</span>
+              <el-button 
+                type="text" 
+                size="small" 
+                @click="restoreField('baseCommand')"
+                class="restore-btn"
+                title="恢复到原始值"
+              >
+                ↺ 恢复
+              </el-button>
+            </div>
+          </div>
+        </div>
         
         <div class="form-group">
           <label for="command-content" class="form-label">
-            完整命令 <span class="required">*</span>
+            完整命令模板 <span class="required">*</span>
             <span v-if="isEditing && getFieldChanges().command" class="changed-indicator">已修改</span>
           </label>
           <el-input
@@ -49,7 +79,7 @@
             v-model="form.command"
             type="textarea"
             :rows="4"
-            placeholder="输入命令，使用 {{参数名}} 表示参数占位符"
+            placeholder="输入命令模板，使用 {{参数名}} 表示参数占位符，如: git commit -m {{message}}"
             @input="analyzeCommand"
             class="command-input"
             :class="{ 'field-changed': isEditing && getFieldChanges().command }"
@@ -426,12 +456,18 @@
         </div>
       </div>
 
-      <!-- 常用命令示例 -->
+      <!-- 常用完整命令 -->
       <div class="form-section">
         <h3 class="section-title">
-          常用命令示例
+          常用完整命令
           <span v-if="isEditing && getFieldChanges().commonCommands" class="changed-indicator">已修改</span>
+          <el-tooltip content="添加实际可执行的完整命令，无需参数占位符。最近使用的命令会自动成为默认复制命令" placement="top">
+            <el-icon class="info-icon"><InfoFilled /></el-icon>
+          </el-tooltip>
         </h3>
+        <div class="section-description">
+          添加基于上面命令模板的具体实例，这些是可以直接执行的完整命令。
+        </div>
         <div class="common-commands-container">
           <div 
             v-for="(cmdExample, index) in form.commonCommands" 
@@ -441,29 +477,38 @@
             <div class="command-example-form">
               <el-input
                 v-model="cmdExample.name"
-                placeholder="示例名称"
+                placeholder="命令名称 (如: 提交功能代码, 提交修复代码)"
                 class="example-name"
               />
               <el-input
                 v-model="cmdExample.command"
                 type="textarea"
                 :rows="2"
-                placeholder="完整命令示例"
+                placeholder="完整可执行命令 (如: git commit -m 'feat: 添加新功能' 或 git commit -m 'fix: 修复登录问题')"
                 class="example-command"
               />
               <el-input
                 v-model="cmdExample.description"
-                placeholder="示例说明"
+                placeholder="使用场景说明 (可选)"
                 class="example-description"
               />
-              <el-button
-                type="danger"
-                text
-                @click="removeCommonCommand(index)"
-                title="删除命令示例"
-              >
-                ×
-              </el-button>
+              <div class="command-actions">
+                <el-checkbox 
+                  v-model="cmdExample.isDefault" 
+                  :disabled="getDefaultCommandCount() > 0 && !cmdExample.isDefault"
+                  @change="handleDefaultChange(index, $event)"
+                >
+                  设为默认
+                </el-checkbox>
+                <el-button
+                  type="danger"
+                  text
+                  @click="removeCommonCommand(index)"
+                  title="删除常用命令"
+                >
+                  ×
+                </el-button>
+              </div>
             </div>
           </div>
           <el-button
@@ -472,25 +517,25 @@
             @click="addCommonCommand"
             icon="Plus"
           >
-            + 添加命令示例
+            + 添加常用完整命令
           </el-button>
         </div>
         <!-- 显示原始常用命令对比 -->
-        <div v-if="isEditing && getFieldChanges().commonCommands" class="comparison-info">
-          <div class="original-value">
-            <span class="label">原始命令示例:</span>
-            <div class="original-common-commands">{{ getOriginalCommonCommandsDisplay() }}</div>
-            <el-button 
-              type="text" 
-              size="small" 
-              @click="restoreField('commonCommands')"
-              class="restore-btn"
-              title="恢复到原始值"
-            >
-              ↺ 恢复
-            </el-button>
+                  <div v-if="isEditing && getFieldChanges().commonCommands" class="comparison-info">
+            <div class="original-value">
+              <span class="label">原始常用命令:</span>
+              <div class="original-common-commands">{{ getOriginalCommonCommandsDisplay() }}</div>
+              <el-button 
+                type="text" 
+                size="small" 
+                @click="restoreField('commonCommands')"
+                class="restore-btn"
+                title="恢复到原始值"
+              >
+                ↺ 恢复
+              </el-button>
+            </div>
           </div>
-        </div>
       </div>
 
       <!-- 分隔符/运算符 -->
@@ -866,8 +911,9 @@ const categoryStatus = computed(() => {
 
 // 表单数据
 const form = ref({
-  commandName: '', // 命令名
-  command: '', // 完整命令
+  commandName: '', // 命令名称
+  baseCommand: '', // 基础命令
+  command: '', // 完整命令模板
   description: '',
   usage: '',
   category: '',
@@ -875,7 +921,7 @@ const form = ref({
   parameters: [],
   options: [], // 命令选项
   commonParameters: [], // 常用参数
-  commonCommands: [], // 常用命令
+  commonCommands: [], // 常用完整命令
   separators: [] // 分隔符/运算符
 })
 
@@ -998,6 +1044,7 @@ const generateCommandName = (command) => {
 const resetForm = () => {
   form.value = {
     commandName: '',
+    baseCommand: '',
     command: '',
     description: '',
     usage: '',
@@ -1026,6 +1073,7 @@ const saveCommand = async () => {
   const commandData = {
     name: form.value.commandName.trim() || generateCommandName(form.value.command.trim()),
     commandName: form.value.commandName.trim(),
+    baseCommand: form.value.baseCommand.trim(),
     description: form.value.description.trim(),
     usage: form.value.usage.trim(),
     command: form.value.command.trim(),
@@ -1222,6 +1270,7 @@ const getFieldChanges = () => {
   
   return {
     commandName: original.commandName !== current.commandName,
+    baseCommand: original.baseCommand !== current.baseCommand,
     command: original.command !== current.command,
     description: original.description !== current.description,
     usage: original.usage !== current.usage,
@@ -1267,6 +1316,9 @@ const restoreField = (fieldName) => {
   switch (fieldName) {
     case 'commandName':
       form.value.commandName = originalData.value.commandName
+      break
+    case 'baseCommand':
+      form.value.baseCommand = originalData.value.baseCommand
       break
     case 'command':
       form.value.command = originalData.value.command
@@ -1394,12 +1446,32 @@ const addCommonCommand = () => {
   form.value.commonCommands.push({
     name: '',
     command: '',
-    description: ''
+    description: '',
+    isDefault: false,
+    lastUsed: null,
+    usageCount: 0
   })
 }
 
 const removeCommonCommand = (index) => {
   form.value.commonCommands.splice(index, 1)
+}
+
+// 获取默认命令数量
+const getDefaultCommandCount = () => {
+  return form.value.commonCommands.filter(cmd => cmd.isDefault).length
+}
+
+// 处理默认命令变更
+const handleDefaultChange = (index, isDefault) => {
+  if (isDefault) {
+    // 取消其他命令的默认状态
+    form.value.commonCommands.forEach((cmd, i) => {
+      if (i !== index) {
+        cmd.isDefault = false
+      }
+    })
+  }
 }
 
 // 分隔符管理
@@ -1436,7 +1508,8 @@ watch(() => form.value.command, () => {
 watch(() => props.editingCommand, (newCommand) => {
   if (newCommand) {
     const commandData = {
-      commandName: newCommand.commandName || '',
+      commandName: newCommand.commandName || newCommand.name || '',
+      baseCommand: newCommand.baseCommand || '',
       command: newCommand.command,
       description: newCommand.description,
       usage: newCommand.usage || '',
@@ -1884,5 +1957,39 @@ watch(() => props.editingCommand, (newCommand) => {
     font-size: var(--el-font-size-small);
     color: var(--el-text-color-secondary);
   }
+}
+
+// 常用完整命令样式
+.command-example-form {
+  .command-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: var(--el-spacing-sm);
+    
+    .el-checkbox {
+      color: var(--el-text-color-regular);
+      font-size: var(--el-font-size-small);
+    }
+  }
+}
+
+.section-title {
+  .info-icon {
+    margin-left: var(--el-spacing-xs);
+    color: var(--el-color-info);
+    cursor: help;
+  }
+}
+
+.section-description {
+  margin-bottom: var(--el-spacing-md);
+  padding: var(--el-spacing-sm);
+  background: var(--el-color-info-light-9);
+  border-left: 3px solid var(--el-color-info);
+  border-radius: var(--el-border-radius-small);
+  font-size: var(--el-font-size-small);
+  color: var(--el-text-color-regular);
+  line-height: 1.5;
 }
 </style> 
