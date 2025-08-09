@@ -133,15 +133,8 @@
         <div class="header-left">
           <h2>{{ headerTitle }}</h2>
           <div class="header-stats">
-            <span class="command-count">{{ displayCommands.length }} / {{ totalCommands }} 条命令</span>
+            <span class="command-count">{{ totalCommands }} 条命令</span>
           </div>
-
-          <el-tag v-if="searchQuery" type="warning" size="small">
-            搜索: {{ searchQuery }}
-          </el-tag>
-          <el-tag v-if="selectedTags.length > 0" type="info" size="small">
-            标签: {{ selectedTags.join(', ') }}
-          </el-tag>
         </div>
         <div class="header-right">
           <el-button
@@ -1099,7 +1092,6 @@ onUnmounted(() => {
       display: flex;
       align-items: center;
       gap: var(--el-spacing-md);
-      flex-wrap: wrap;
       
       h2 {
         margin: 0;
@@ -1111,27 +1103,11 @@ onUnmounted(() => {
         display: flex;
         align-items: center;
         gap: var(--el-spacing-sm);
-      }
-      
-      .command-count {
-        font-size: var(--el-font-size-small);
-        color: var(--el-text-color-secondary);
-      }
-      
-      .loading-status {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: var(--el-font-size-small);
-        color: var(--el-color-primary);
-      }
-      
-      .loaded-status {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: var(--el-font-size-small);
-        color: var(--el-color-success);
+        
+        .command-count {
+          font-size: var(--el-font-size-small);
+          color: var(--el-text-color-secondary);
+        }
       }
     }
     

@@ -1,113 +1,80 @@
 <template>
-  <div 
-    class="command-card" 
-    :class="{ 'is-user-created': command.isUserCreated }"
-    @click="handleCopyRecentCommand"
-    @dblclick.stop="handleBuild"
-  >
-    <!-- 简化的命令卡片布局 -->
-    <div class="card-content" :class="{ 'compact-mode': displaySettings.compactMode }">
-      <!-- 主要内容区域 -->
-      <div class="main-content">
-        <!-- 命令名称 (可选显示) -->
-        <div v-if="displaySettings.showCommandName" class="command-name">
-          {{ command.name }}
-          <el-tag v-if="command.isUserCreated" size="small" type="warning">自定义</el-tag>
-        </div>
-        
-        <!-- 完整命令 (始终显示) -->
-        <div class="command-display">
-          <el-tooltip :content="recentCommandText" placement="top" :disabled="!recentCommandText">
-            <code class="command-text">{{ displayRecentCommand }}</code>
-          </el-tooltip>
-        </div>
-        
-        <!-- 描述 (可选显示) -->
-        <div v-if="displaySettings.showDescription" class="command-desc">
-          {{ command.description }}
-        </div>
+  <div class="command-card" :class="{ 'is-user-created': command.isUserCreated }">
+    <!-- 主要内容区域 -->
+    <div class="card-content">
+      <!-- 作用 -->
+      <div class="purpose-section">
+        <el-tooltip :content="command.description" placement="top">
+          <span class="command-name">{{ command.name }}</span>
+        </el-tooltip>
       </div>
-      
-      <!-- 可选信息区域 -->
-      <div v-if="hasOptionalInfo" class="optional-info">
-        <!-- 分类 -->
-        <div v-if="displaySettings.showCategory" class="info-item">
-          <el-tag type="info" size="small">{{ categoryName }}</el-tag>
-        </div>
-        
-        <!-- 标签 -->
-        <div v-if="displaySettings.showTags" class="info-item tags-container">
-          <el-tag 
-            v-for="tag in displayTags" 
-            :key="tag" 
+
+      <!-- 默认完整命令 -->
+      <div class="command-section">
+        <el-tooltip :content="recentCommandText" placement="top">
+          <code class="command-text">{{ displayRecentCommand }}</code>
+        </el-tooltip>
+      </div>
+
+      <!-- 分类标签 -->
+      <div class="category-section">
+        <el-tag type="info" size="small">{{ categoryName }}</el-tag>
+        <div class="tags-container" v-if="command.tags && command.tags.length > 0">
+          <el-tag
+            v-for="tag in displayTags.slice(0, 2)"
+            :key="tag"
             size="small"
             class="tag-item"
           >
             {{ tag }}
           </el-tag>
-          <el-tag 
-            v-if="extraTagsCount > 0" 
-            size="small" 
+          <el-tag
+            v-if="extraTagsCount > 0"
+            size="small"
             type="info"
             class="tag-item"
           >
             +{{ extraTagsCount }}
           </el-tag>
         </div>
-        
-        <!-- 使用统计 -->
-        <div v-if="displaySettings.showUsageStats && command.usageCount" class="info-item">
-          <span class="usage-stats">
-            <el-icon><TrendCharts /></el-icon>
-            使用 {{ command.usageCount }} 次
-          </span>
-        </div>
-        
-        <!-- 参数信息 -->
-        <div v-if="displaySettings.showParameters && hasParameters" class="info-item">
-          <span class="parameter-info">
-            <el-icon><Grid /></el-icon>
-            {{ parameterCount }} 个参数
-          </span>
-          </div>
       </div>
-      
+
       <!-- 操作按钮 -->
       <div class="actions-section">
-          <el-tooltip content="复制命令" placement="top">
+        <el-tooltip content="复制命令" placement="top">
           <el-button :icon="CopyDocument" size="small" circle @click.stop="handleCopyRecentCommand" />
-          </el-tooltip>
-          
-          <el-dropdown @click.stop placement="bottom-end" trigger="click">
+        </el-tooltip>
+
+        <el-dropdown @click.stop placement="bottom-end" trigger="click">
           <el-button :icon="More" size="small" circle />
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="handleDetail" :icon="View">
-                  查看详情
-                </el-dropdown-item>
-                <el-dropdown-item @click="handleEdit" :icon="Edit">
-                  编辑命令
-                </el-dropdown-item>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="handleDetail" :icon="View">
+                查看详情
+              </el-dropdown-item>
+              <el-dropdown-item @click="handleEdit" :icon="Edit">
+                编辑命令
+              </el-dropdown-item>
               <el-dropdown-item @click="handleExecute" :icon="CaretRight">
                 快速执行
               </el-dropdown-item>
               <el-dropdown-item @click="handleManageCopy" :icon="Setting">
                 管理复制命令
               </el-dropdown-item>
-                <el-dropdown-item @click="handleDuplicate" :icon="DocumentCopy">
-                  复制为新命令
-                </el-dropdown-item>
-              <el-dropdown-item 
-                @click="handleDelete" 
+              <el-dropdown-item @click="handleDuplicate" :icon="DocumentCopy">
+                复制为新命令
+              </el-dropdown-item>
+              <el-dropdown-item
+                @click="handleDelete"
                 :icon="Delete"
                 :divided="true"
                 style="color: var(--el-color-danger)"
               >
                 删除命令
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </div>
   </div>
@@ -253,141 +220,88 @@ const handleManageCopy = () => {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .command-card {
   background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
   border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 12px;
+  border: 1px solid var(--el-border-color);
   transition: all 0.2s ease;
   cursor: pointer;
+  
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    border-color: var(--el-color-primary-light-5);
+  }
+  
+  &.is-user-created {
+    background: var(--el-color-primary-light-9);
+  }
 }
-  
-.command-card:hover {
-    border-color: var(--el-color-primary);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  }
-  
-.command-card.is-user-created {
-    border-left: 4px solid var(--el-color-warning);
-  }
-  
+
 .card-content {
-    display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.card-content.compact-mode {
-  gap: 8px;
-}
-
-/* 主要内容区域 */
-.main-content {
-      flex: 1;
-}
-      
-      .command-name {
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--el-text-color-primary);
-  margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-.compact-mode .command-name {
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.command-display {
-  margin-bottom: 6px;
-}
-
-.command-text {
-  background: var(--el-fill-color-light);
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 4px;
-  padding: 10px 12px;
-  font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 14px;
-  color: var(--el-text-color-primary);
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
-  line-height: 1.4;
-}
-
-.compact-mode .command-text {
-  padding: 6px 10px;
-  font-size: 13px;
-}
-      
-      .command-desc {
-  font-size: 13px;
-        color: var(--el-text-color-secondary);
-        line-height: 1.4;
-      }
-
-.compact-mode .command-desc {
-  font-size: 12px;
-}
-
-/* 可选信息区域 */
-.optional-info {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  min-height: 48px;
 }
 
-.info-item {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-}
-        
-.tags-container {
-          display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-    }
-    
-.tag-item {
-  margin: 0;
-}
-
-.usage-stats,
-.parameter-info {
-          display: flex;
-          align-items: center;
-            gap: 4px;
-  font-size: 12px;
-              color: var(--el-text-color-secondary);
-            }
-            
-/* 操作按钮区域 */
-.actions-section {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: auto;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .command-text {
-    font-size: 13px;
-  }
+.purpose-section {
+  flex: 0 0 200px;
+  min-width: 0;
   
-  .actions-section {
-    justify-content: center;
+  .command-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--el-text-color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
   }
+}
+
+.command-section {
+  flex: 1;
+  min-width: 0;
+  
+  .command-text {
+    font-family: var(--el-font-family-monospace);
+    font-size: 13px;
+    color: var(--el-text-color-regular);
+    background: var(--el-fill-color-light);
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+  }
+}
+
+.category-section {
+  flex: 0 0 200px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  .tags-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+    
+    .tag-item {
+      font-size: 12px;
+    }
+  }
+}
+
+.actions-section {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style> 
