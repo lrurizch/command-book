@@ -176,6 +176,7 @@
           @detail="handleCommandDetail"
           @build="handleCommandBuild"
           @restore="handleCommandRestore"
+          @manageCopy="handleManageCopy"
         />
       </div>
     </div>
@@ -240,6 +241,12 @@
       @execute="handleBuilderExecute"
       @save="handleBuilderSave"
     />
+
+    <!-- 复制命令管理模态框 -->
+    <CopyCommandModal
+      v-model="showCopyModal"
+      :command="copyCommand"
+    />
   </div>
 </template>
 
@@ -255,6 +262,7 @@ import WorkflowAddModal from '../components/WorkflowAddModal.vue'
 import ParameterModal from '../components/ParameterModal.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import BatchMigrateModal from '../components/BatchMigrateModal.vue'
+import CopyCommandModal from '../components/CopyCommandModal.vue'
 
 import { useCommandStore } from '../stores/command'
 import { useKeyboardStore } from '../stores/keyboard'
@@ -270,6 +278,8 @@ const showDeleteModal = ref(false)
 const showDetailModal = ref(false)
 const showBuilderModal = ref(false)
 const showBatchMigrateModal = ref(false)
+const showCopyModal = ref(false)
+const copyCommand = ref(null)
 const showAddModal = ref(false)
 const showBatchCreateModal = ref(false)
 const showWorkflowModal = ref(false)
@@ -542,6 +552,12 @@ const handleCommandRestore = (command) => {
     console.error('恢复命令失败:', error)
     toast.error('恢复失败，请重试')
   }
+}
+
+// 处理管理复制命令
+const handleManageCopy = (command) => {
+  copyCommand.value = command
+  showCopyModal.value = true
 }
 
 // 详情模态框事件处理

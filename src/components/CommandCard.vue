@@ -67,6 +67,9 @@
               <el-dropdown-item @click="handleExecute" :icon="CaretRight">
                 快速执行
               </el-dropdown-item>
+              <el-dropdown-item @click="handleManageCopy" :icon="Setting">
+                管理复制命令
+              </el-dropdown-item>
               <el-dropdown-item @click="handleDuplicate" :icon="DocumentCopy">
                 复制为新命令
               </el-dropdown-item>
@@ -96,7 +99,8 @@ import {
   Edit, 
   CaretRight, 
   DocumentCopy, 
-  Delete 
+  Delete,
+  Setting 
 } from '@element-plus/icons-vue'
 
 // Props
@@ -108,26 +112,33 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['copy', 'execute', 'build', 'detail', 'edit', 'delete', 'duplicate'])
+const emit = defineEmits(['copy', 'execute', 'build', 'detail', 'edit', 'delete', 'duplicate', 'manageCopy'])
 
 // Store
 const commandStore = useCommandStore()
 
-// 获取最近使用的完整命令
+// 获取默认复制的完整命令
 const recentCommandText = computed(() => {
-  // 从构建历史中获取该命令最近一次的完整构建结果
+  // 优先使用用户手动设置的默认复制命令
+  const defaultCopy = commandStore.getDefaultCopyCommand(props.command.id)
+  if (defaultCopy) {
+    return defaultCopy
+  }
+  
+  // 否则使用最近的构建命令
   const buildHistory = commandStore.buildHistory || []
   const recentBuild = buildHistory
     .filter(item => item.templateId === props.command.id)
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
   
-  return recentBuild?.finalCommand || props.command.command
+  // 确保返回有效的命令文本
+  return recentBuild?.finalCommand || props.command?.command || '暂无命令'
 })
 
 // 显示的最近命令（截断长命令）
 const displayRecentCommand = computed(() => {
   const maxLength = 80
-  const cmd = recentCommandText.value
+  const cmd = recentCommandText.value || ''
   return cmd.length > maxLength ? cmd.substring(0, maxLength) + '...' : cmd
 })
 
@@ -150,8 +161,9 @@ const extraTagsCount = computed(() => {
 
 // 事件处理器
 const handleCopyRecentCommand = () => {
-  navigator.clipboard.writeText(recentCommandText.value)
-  emit('copy', recentCommandText.value)
+  const textToCopy = recentCommandText.value || props.command?.command || '暂无命令'
+  navigator.clipboard.writeText(textToCopy)
+  emit('copy', textToCopy)
 }
 
 const handleBuild = () => {
@@ -176,6 +188,10 @@ const handleDuplicate = () => {
 
 const handleDelete = () => {
   emit('delete', props.command)
+}
+
+const handleManageCopy = () => {
+  emit('manageCopy', props.command)
 }
 </script>
 

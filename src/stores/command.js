@@ -75,6 +75,11 @@ export const useCommandStore = defineStore('command', () => {
     commands: []
   })
   
+  // 智能复制设置
+  const defaultCopyCommands = ref({}) // { commandId: 'selectedFullCommand' }
+  const autoUpdateCopyCommand = ref({}) // { commandId: boolean }
+  const frequentCommands = ref({}) // { commandId: [fullCommand1, fullCommand2, ...] }
+  
   // ===== 预计算的分类索引 =====
   const categoryIndex = ref(new Map())
   
@@ -179,6 +184,96 @@ export const useCommandStore = defineStore('command', () => {
     })
   })
   
+  /**
+   * 设置命令的默认复制内容
+   * @param {string} commandId 命令ID
+   * @param {string} fullCommand 完整命令
+   */
+  const setDefaultCopyCommand = (commandId, fullCommand) => {
+    defaultCopyCommands.value[commandId] = fullCommand
+    saveToStorage()
+  }
+  
+  /**
+   * 获取命令的默认复制内容
+   * @param {string} commandId 命令ID
+   * @returns {string} 默认复制的完整命令
+   */
+  const getDefaultCopyCommand = (commandId) => {
+    // 如果手动设置了默认复制命令，使用设置的命令
+    if (defaultCopyCommands.value[commandId]) {
+      return defaultCopyCommands.value[commandId]
+    }
+    
+    // 否则使用最近的构建命令
+    const buildHistory = JSON.parse(localStorage.getItem('command-build-history') || '[]')
+    const recentBuild = buildHistory
+      .filter(item => item.templateId === commandId)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
+    
+    return recentBuild?.finalCommand || null
+  }
+  
+  /**
+   * 切换命令的自动更新设置
+   * @param {string} commandId 命令ID
+   * @param {boolean} autoUpdate 是否自动更新
+   */
+  const setAutoUpdateCopyCommand = (commandId, autoUpdate) => {
+    autoUpdateCopyCommand.value[commandId] = autoUpdate
+    saveToStorage()
+  }
+  
+  /**
+   * 添加常用完整命令
+   * @param {string} commandId 命令ID
+   * @param {string} fullCommand 完整命令
+   */
+  const addFrequentCommand = (commandId, fullCommand) => {
+    if (!frequentCommands.value[commandId]) {
+      frequentCommands.value[commandId] = []
+    }
+    
+    // 避免重复添加
+    if (!frequentCommands.value[commandId].includes(fullCommand)) {
+      frequentCommands.value[commandId].unshift(fullCommand)
+      // 最多保留10个常用命令
+      if (frequentCommands.value[commandId].length > 10) {
+        frequentCommands.value[commandId] = frequentCommands.value[commandId].slice(0, 10)
+      }
+    }
+    saveToStorage()
+  }
+  
+  /**
+   * 获取命令的常用完整命令列表
+   * @param {string} commandId 命令ID
+   * @returns {Array} 常用完整命令数组
+   */
+  const getFrequentCommands = (commandId) => {
+    return frequentCommands.value[commandId] || []
+  }
+
+  /**
+   * 获取叶子分类（没有子分类的分类）
+   * @returns {Array} 叶子分类数组
+   */
+  const getLeafCategories = () => {
+    // 获取所有分类ID
+    const allCategoryIds = categories.value.map(cat => cat.id)
+    
+    // 找出没有子分类的分类（叶子分类）
+    const leafCategories = categories.value.filter(category => {
+      // 检查是否有其他分类以此分类ID为父级
+      const hasChildren = categories.value.some(otherCategory => 
+        otherCategory.parentId === category.id
+      )
+      return !hasChildren
+    })
+    
+    return leafCategories
+  }
+
   /**
    * 更新分类索引 - 超快速分类映射
    */
@@ -1037,6 +1132,16 @@ export const useCommandStore = defineStore('command', () => {
     // 统计功能
     updateCommandStats,
     getParameterStatistics,
+    
+    // 分类查询
+    getLeafCategories,
+    
+    // 智能复制功能
+    setDefaultCopyCommand,
+    getDefaultCopyCommand,
+    setAutoUpdateCopyCommand,
+    addFrequentCommand,
+    getFrequentCommands,
     
     // 工具方法
     generateId,
