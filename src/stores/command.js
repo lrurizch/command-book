@@ -183,6 +183,16 @@ export const useCommandStore = defineStore('command', () => {
   const filteredCommands = computed(() => {
     let filtered = enhancedCommands.value
     
+    // 调试信息
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Store filteredCommands debug:', {
+        totalCommands: enhancedCommands.value.length,
+        selectedCategory: selectedCategory.value,
+        currentSearchQuery: currentSearchQuery.value,
+        selectedTags: selectedTags.value
+      })
+    }
+    
     // 分类过滤
     if (selectedCategory.value && selectedCategory.value !== 'all') {
       if (selectedCategory.value === 'recycle-bin') {
@@ -194,6 +204,11 @@ export const useCommandStore = defineStore('command', () => {
       }
     } else {
       filtered = filtered.filter(cmd => !cmd.isDeleted)
+    }
+    
+    // 调试信息 - 分类过滤后
+    if (process.env.NODE_ENV === 'development') {
+      console.log('After category filter:', filtered.length)
     }
     
     // 标签过滤

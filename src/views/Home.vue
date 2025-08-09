@@ -120,6 +120,10 @@
         <div class="header-left">
           <h2>{{ headerTitle }}</h2>
           <span class="command-count">{{ displayCommands.length }} 条命令</span>
+          <!-- 调试信息 -->
+          <el-tag type="info" size="small" v-if="process.env.NODE_ENV === 'development'">
+            分类: {{ commandStore.selectedCategory }} | 总命令: {{ commandStore.commands.length }} | 过滤后: {{ commandStore.filteredCommands.length }}
+          </el-tag>
           <el-tag v-if="searchQuery" type="warning" size="small">
             搜索: {{ searchQuery }}
           </el-tag>
@@ -405,8 +409,11 @@ const clearFilters = () => {
 
 // 监听选定分类的变化
 watch(() => commandStore.selectedCategory, () => {
-  // 当分类改变时，重置搜索和标签筛选
-  clearFilters()
+  // 当分类改变时，重置搜索和标签筛选（避免循环调用）
+  searchQuery.value = ''
+  selectedTags.value = []
+  commandStore.setSearchQuery('')
+  commandStore.setSelectedTags([])
 })
 
 // 监听Store中搜索查询的变化

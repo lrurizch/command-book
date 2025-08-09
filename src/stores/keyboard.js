@@ -211,7 +211,7 @@ export const useKeyboardStore = defineStore('keyboard', () => {
   const selectCategory = (index) => {
     const categories = commandStore.categories
     if (categories[index]) {
-      commandStore.selectedCategory = categories[index].id
+      commandStore.setSelectedCategory(categories[index].id)
     }
   }
   

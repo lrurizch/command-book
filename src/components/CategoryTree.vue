@@ -694,9 +694,9 @@ const filteredCategoryTree = computed(() => {
 const selectCategory = (categoryId) => {
   // 如果点击的是当前已选中的分类，则取消选择（切换为"全部"）
   if (commandStore.selectedCategory === categoryId) {
-    commandStore.selectedCategory = 'all'
+    commandStore.setSelectedCategory('all')
   } else {
-    commandStore.selectedCategory = categoryId
+    commandStore.setSelectedCategory(categoryId)
   }
 }
 
