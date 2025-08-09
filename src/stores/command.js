@@ -41,43 +41,22 @@ export const useCommandStore = defineStore('command', () => {
     { id: 'all', name: '全部', color: '#999999', level: 0, parentId: null },
     { id: 'recycle-bin', name: '回收站', color: '#6b7280', level: 0, parentId: null },
     
-    // 开发工具 - 一级分类
-    { id: 'dev-tools', name: '开发工具', color: '#4299e1', level: 0, parentId: null },
+    // 根据实际命令数据定义分类
+    // Git 分类
+    { id: 'git-basic', name: 'Git 基础', color: '#f56565', level: 0, parentId: null },
+    { id: 'git-branch', name: 'Git 分支', color: '#ed8936', level: 0, parentId: null },
+    { id: 'git-remote', name: 'Git 远程', color: '#ecc94b', level: 0, parentId: null },
+    { id: 'git', name: 'Git 通用', color: '#48bb78', level: 0, parentId: null },
     
-    // Git - 二级分类
-    { id: 'git-basic', name: 'Git 基础', color: '#f56565', level: 1, parentId: 'dev-tools' },
-    { id: 'git-branch', name: 'Git 分支', color: '#ed8936', level: 1, parentId: 'dev-tools' },
-    { id: 'git-remote', name: 'Git 远程', color: '#ecc94b', level: 1, parentId: 'dev-tools' },
-    { id: 'git-advanced', name: 'Git 高级', color: '#48bb78', level: 1, parentId: 'dev-tools' },
+    // 开发工具
+    { id: 'docker', name: 'Docker', color: '#0db7ed', level: 0, parentId: null },
+    { id: 'npm', name: 'NPM', color: '#cb3837', level: 0, parentId: null },
     
-    // Docker - 二级分类
-    { id: 'docker-basic', name: 'Docker 基础', color: '#0db7ed', level: 1, parentId: 'dev-tools' },
-    { id: 'docker-compose', name: 'Docker Compose', color: '#326ce5', level: 1, parentId: 'dev-tools' },
-    { id: 'docker-image', name: 'Docker 镜像', color: '#2188ff', level: 1, parentId: 'dev-tools' },
-    
-    // 系统管理 - 一级分类
+    // 系统管理
     { id: 'system', name: '系统管理', color: '#9f7aea', level: 0, parentId: null },
     
-    // 文件操作 - 二级分类
-    { id: 'file-ops', name: '文件操作', color: '#ed64a6', level: 1, parentId: 'system' },
-    { id: 'file-search', name: '文件搜索', color: '#805ad5', level: 1, parentId: 'system' },
-    { id: 'file-permission', name: '文件权限', color: '#6b46c1', level: 1, parentId: 'system' },
-    
-    // 进程管理 - 二级分类
-    { id: 'process', name: '进程管理', color: '#38b2ac', level: 1, parentId: 'system' },
-    { id: 'service', name: '服务管理', color: '#319795', level: 1, parentId: 'system' },
-    
-    // 网络工具 - 一级分类
-    { id: 'network', name: '网络工具', color: '#38a169', level: 0, parentId: null },
-    
-    // 数据库 - 一级分类
-    { id: 'database', name: '数据库', color: '#d69e2e', level: 0, parentId: null },
-    { id: 'mysql', name: 'MySQL', color: '#f56500', level: 1, parentId: 'database' },
-    { id: 'postgresql', name: 'PostgreSQL', color: '#336791', level: 1, parentId: 'database' },
-    { id: 'redis', name: 'Redis', color: '#dc143c', level: 1, parentId: 'database' },
-    
-    // 压缩解压 - 一级分类
-    { id: 'archive', name: '压缩解压', color: '#e53e3e', level: 0, parentId: null }
+    // 网络工具
+    { id: 'network', name: '网络工具', color: '#38a169', level: 0, parentId: null }
   ])
   
   // ===== 增强状态 =====
@@ -95,6 +74,9 @@ export const useCommandStore = defineStore('command', () => {
     tags: [],
     commands: []
   })
+  
+  // ===== 预计算的分类索引 =====
+  const categoryIndex = ref(new Map())
   
   // ===== 搜索配置 =====
   const fuseOptions = {
@@ -171,61 +153,121 @@ export const useCommandStore = defineStore('command', () => {
   // ===== 计算属性 =====
   
   /**
-   * 升级后的命令列表
+   * 升级后的命令列表 - 懒加载，不在分类切换时触发
    */
+  const commandCache = new Map()
   const enhancedCommands = computed(() => {
-    return commands.value.map(upgradeCommandParameters)
+    // 注意：这个计算属性现在主要用于其他功能（如统计），
+    // 不用于分类显示，避免影响切换性能
+    return commands.value.map(cmd => {
+      // 使用缓存避免重复升级相同的命令
+      const cacheKey = `${cmd.id}-${cmd.updatedAt || cmd.createdAt}`
+      if (commandCache.has(cacheKey)) {
+        return commandCache.get(cacheKey)
+      }
+      
+      const enhanced = upgradeCommandParameters(cmd)
+      commandCache.set(cacheKey, enhanced)
+      
+      // 限制缓存大小，避免内存泄漏
+      if (commandCache.size > 1000) {
+        const firstKey = commandCache.keys().next().value
+        commandCache.delete(firstKey)
+      }
+      
+      return enhanced
+    })
   })
   
   /**
-   * 过滤后的命令列表（增强版）
+   * 更新分类索引 - 超快速分类映射
+   */
+  const updateCategoryIndex = () => {
+    const index = new Map()
+    const allCommands = []
+    const recycleBinCommands = []
+    
+    // 单次遍历，最小化操作
+    for (const cmd of commands.value) {
+      if (cmd.isDeleted) {
+        recycleBinCommands.push(cmd)
+      } else {
+        allCommands.push(cmd)
+        
+        // 直接操作，避免重复检查
+        const categoryCommands = index.get(cmd.category)
+        if (categoryCommands) {
+          categoryCommands.push(cmd)
+        } else {
+          index.set(cmd.category, [cmd])
+        }
+      }
+    }
+    
+    // 设置特殊分类
+    index.set('all', allCommands)
+    index.set('recycle-bin', recycleBinCommands)
+    
+    // 最近使用命令（简化处理）
+    const recentCommandObjects = []
+    for (const id of recentCommands.value) {
+      const cmd = commands.value.find(c => c.id === id)
+      if (cmd && !cmd.isDeleted) {
+        recentCommandObjects.push(cmd)
+      }
+    }
+    index.set('recent', recentCommandObjects)
+    
+    categoryIndex.value = index
+  }
+
+    /**
+   * 过滤后的命令列表（使用预计算索引，无参数升级）
    */
   const filteredCommands = computed(() => {
-    let filtered = enhancedCommands.value
+    console.time(`🔍 Store: filteredCommands 计算`)
+    const category = selectedCategory.value
+    const tags = selectedTags.value
+    const query = currentSearchQuery.value.trim()
     
-    // 调试信息
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Store filteredCommands debug:', {
-        totalCommands: enhancedCommands.value.length,
-        selectedCategory: selectedCategory.value,
-        currentSearchQuery: currentSearchQuery.value,
-        selectedTags: selectedTags.value
-      })
+    console.log(`🔍 Store: 开始过滤 - 分类: ${category}, 标签: ${tags.length}, 搜索: "${query}"`)
+    
+    // 从索引中直接获取分类命令（瞬间完成！）
+    let filtered = categoryIndex.value.get(category) || []
+    console.log(`📊 Store: 从索引获取 ${category} 分类命令数量: ${filtered.length}`)
+    
+    // 对于基本分类切换，直接返回原始命令（最快）
+    if (tags.length === 0 && !query) {
+      console.log(`⚡ Store: 无额外过滤，直接返回`)
+      console.timeEnd(`🔍 Store: filteredCommands 计算`)
+      return filtered
     }
     
-    // 分类过滤
-    if (selectedCategory.value && selectedCategory.value !== 'all') {
-      if (selectedCategory.value === 'recycle-bin') {
-        filtered = filtered.filter(cmd => cmd.isDeleted === true)
-      } else {
-        filtered = filtered.filter(cmd => 
-          cmd.category === selectedCategory.value && !cmd.isDeleted
-        )
+    console.log(`🎯 Store: 需要额外过滤`)
+    // 只在有搜索或标签时才进行过滤
+    const result = filtered.filter(cmd => {
+      // 标签过滤
+      if (tags.length > 0) {
+        if (!cmd.tags || !tags.some(tag => cmd.tags.includes(tag))) {
+          return false
+        }
       }
-    } else {
-      filtered = filtered.filter(cmd => !cmd.isDeleted)
-    }
+      
+      // 搜索过滤
+      if (query) {
+        const lowerQuery = query.toLowerCase()
+        return cmd.name.toLowerCase().includes(lowerQuery) ||
+          cmd.description?.toLowerCase().includes(lowerQuery) ||
+          cmd.command.toLowerCase().includes(lowerQuery) ||
+          cmd.tags?.some(tag => tag.toLowerCase().includes(lowerQuery))
+      }
+      
+      return true
+    })
     
-    // 调试信息 - 分类过滤后
-    if (process.env.NODE_ENV === 'development') {
-      console.log('After category filter:', filtered.length)
-    }
-    
-    // 标签过滤
-    if (selectedTags.value.length > 0) {
-      filtered = filtered.filter(cmd => 
-        selectedTags.value.some(tag => cmd.tags?.includes(tag))
-      )
-    }
-    
-    // 搜索过滤
-    if (currentSearchQuery.value.trim()) {
-      const fuse = new Fuse(filtered, fuseOptions)
-      const results = fuse.search(currentSearchQuery.value.trim())
-      filtered = results.map(result => result.item)
-    }
-    
-    return filtered
+    console.log(`📈 Store: 过滤后命令数量: ${result.length}`)
+    console.timeEnd(`🔍 Store: filteredCommands 计算`)
+    return result
   })
   
   /**
@@ -502,6 +544,7 @@ export const useCommandStore = defineStore('command', () => {
     }
     
     commands.value.push(enhancedCommand)
+    updateCategoryIndex() // 立即更新索引
     saveToStorage()
   }
   
@@ -936,6 +979,9 @@ export const useCommandStore = defineStore('command', () => {
   
   // 初始化示例数据
   initializeData()
+  
+  // 立即建立分类索引
+  updateCategoryIndex()
   
   // ===== 返回接口 =====
   

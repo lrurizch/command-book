@@ -2,155 +2,85 @@
   <div 
     class="command-card" 
     :class="{ 'is-user-created': command.isUserCreated }"
-    @click="handleCardClick"
+    @click="handleCopyRecentCommand"
+    @dblclick.stop="handleBuild"
   >
-    <div class="card-header">
-      <div class="command-info">
-        <h4 class="command-name">
+    <!-- 新的水平布局：从左到右 -->
+    <div class="card-content">
+      <!-- 最近使用的完整命令 (左侧，占主要空间) -->
+      <div class="recent-command-section">
+        <div class="command-name">
           {{ command.name }}
           <el-tag v-if="command.isUserCreated" size="small" type="warning">自定义</el-tag>
-        </h4>
-        <p class="command-desc">{{ command.description }}</p>
+        </div>
+        <div class="recent-command">
+          <el-tooltip :content="recentCommandText" placement="top" :disabled="!recentCommandText">
+            <code class="command-text">{{ displayRecentCommand }}</code>
+          </el-tooltip>
+        </div>
+        <div class="command-desc">{{ command.description }}</div>
       </div>
       
-      <!-- 参数统计显示 -->
-      <div class="param-stats" v-if="command.parameterStats">
-        <el-tooltip content="参数统计" placement="top">
-          <div class="stats-summary">
-            <el-icon><Grid /></el-icon>
-            <span>{{ command.parameterStats.total }}</span>
-            <div class="stats-detail">
-              <el-tag v-if="command.parameterStats.required > 0" size="small" type="danger">
-                必选{{ command.parameterStats.required }}
-              </el-tag>
-              <el-tag v-if="command.parameterStats.optional > 0" size="small" type="success">
-                可选{{ command.parameterStats.optional }}
-              </el-tag>
-              <el-tag v-if="command.parameterStats.optionLevel > 0" size="small" type="info">
-                选项{{ command.parameterStats.optionLevel }}
-              </el-tag>
-            </div>
-          </div>
+      <!-- 分类 (中左) -->
+      <div class="category-section">
+        <el-tag type="info" size="small">
+          {{ categoryName }}
+        </el-tag>
+      </div>
+      
+      <!-- 标签 (中右) -->
+      <div class="tags-section">
+        <el-tag 
+          v-for="tag in displayTags" 
+          :key="tag" 
+          size="small"
+          class="tag-item"
+        >
+          {{ tag }}
+        </el-tag>
+        <el-tag 
+          v-if="extraTagsCount > 0" 
+          size="small" 
+          type="info"
+          class="tag-item"
+        >
+          +{{ extraTagsCount }}
+        </el-tag>
+      </div>
+      
+      <!-- 操作按钮 (最右侧) -->
+      <div class="actions-section">
+        <el-tooltip content="单击复制最近命令，双击进入构建器" placement="top">
+          <el-button :icon="CopyDocument" size="small" circle @click.stop="handleCopyRecentCommand" />
         </el-tooltip>
-      </div>
-      
-      <div class="card-actions">
-        <el-button-group size="small">
-          <el-tooltip content="复制命令" placement="top">
-            <el-button @click.stop="handleCopy" :icon="CopyDocument" />
-          </el-tooltip>
-          
-          <el-tooltip content="智能构建" placement="top">
-            <el-button @click.stop="handleBuild" :icon="Setting" type="primary" />
-          </el-tooltip>
-          
-          <el-tooltip content="快速执行" placement="top">
-            <el-button @click.stop="handleExecute" :icon="CaretRight" type="success" />
-          </el-tooltip>
-          
-          <el-dropdown @click.stop placement="bottom-end" trigger="click">
-            <el-button :icon="More" />
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="handleDetail" :icon="View">
-                  查看详情
-                </el-dropdown-item>
-                <el-dropdown-item @click="handleEdit" :icon="Edit">
-                  编辑命令
-                </el-dropdown-item>
-                <el-dropdown-item @click="handleDuplicate" :icon="DocumentCopy">
-                  复制为新命令
-                </el-dropdown-item>
-                <el-dropdown-item divided @click="handleDelete" :icon="Delete">
-                  <span style="color: var(--el-color-danger)">删除命令</span>
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </el-button-group>
-      </div>
-    </div>
-    
-    <div class="card-body">
-      <div class="command-preview">
-        <code>{{ command.command }}</code>
-      </div>
-      
-      <!-- 增强的参数信息显示 -->
-      <div class="enhanced-params" v-if="enhancedCommand.parameters && enhancedCommand.parameters.length > 0">
-        <div class="param-categories">
-          <div v-if="requiredParams.length > 0" class="param-category required">
-            <el-tag size="small" type="danger" effect="light">
-              <el-icon><Star /></el-icon>
-              必选参数 ({{ requiredParams.length }})
-            </el-tag>
-            <div class="param-list">
-              <span v-for="param in requiredParams.slice(0, 3)" :key="param.name" class="param-name">
-                {{ param.name }}
-              </span>
-              <span v-if="requiredParams.length > 3" class="param-more">
-                +{{ requiredParams.length - 3 }}
-              </span>
-            </div>
-          </div>
-          
-          <div v-if="optionalParams.length > 0" class="param-category optional">
-            <el-tag size="small" type="success" effect="light">
-              <el-icon><Grid /></el-icon>
-              可选参数 ({{ optionalParams.length }})
-            </el-tag>
-            <div class="param-list">
-              <span v-for="param in optionalParams.slice(0, 3)" :key="param.name" class="param-name">
-                {{ param.name }}
-              </span>
-              <span v-if="optionalParams.length > 3" class="param-more">
-                +{{ optionalParams.length - 3 }}
-              </span>
-            </div>
-          </div>
-          
-          <div v-if="optionLevelParams.length > 0" class="param-category option">
-            <el-tag size="small" type="info" effect="light">
-              <el-icon><Setting /></el-icon>
-              选项参数 ({{ optionLevelParams.length }})
-            </el-tag>
-            <div class="param-list">
-              <span v-for="param in optionLevelParams.slice(0, 3)" :key="param.name" class="param-name">
-                {{ param.parentOption }}
-              </span>
-              <span v-if="optionLevelParams.length > 3" class="param-more">
-                +{{ optionLevelParams.length - 3 }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div class="card-footer">
-        <div class="command-tags">
-          <el-tag 
-            v-for="tag in command.tags?.slice(0, 3)" 
-            :key="tag" 
-            size="small" 
-            type="info" 
-            effect="plain"
-          >
-            {{ tag }}
-          </el-tag>
-          <el-tag v-if="command.tags && command.tags.length > 3" size="small" type="info" effect="plain">
-            +{{ command.tags.length - 3 }}
-          </el-tag>
-        </div>
         
-        <div class="command-meta">
-          <span v-if="command.usageCount" class="usage-count">
-            <el-icon><Histogram /></el-icon>
-            {{ command.usageCount }}次
-          </span>
-          <span v-if="command.lastUsed" class="last-used">
-            {{ formatLastUsed(command.lastUsed) }}
-          </span>
-        </div>
+        <el-dropdown @click.stop placement="bottom-end" trigger="click">
+          <el-button :icon="More" size="small" circle />
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="handleDetail" :icon="View">
+                查看详情
+              </el-dropdown-item>
+              <el-dropdown-item @click="handleEdit" :icon="Edit">
+                编辑命令
+              </el-dropdown-item>
+              <el-dropdown-item @click="handleExecute" :icon="CaretRight">
+                快速执行
+              </el-dropdown-item>
+              <el-dropdown-item @click="handleDuplicate" :icon="DocumentCopy">
+                复制为新命令
+              </el-dropdown-item>
+              <el-dropdown-item 
+                @click="handleDelete" 
+                :icon="Delete"
+                :divided="true"
+                style="color: var(--el-color-danger)"
+              >
+                删除命令
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </div>
     </div>
   </div>
@@ -158,21 +88,16 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useCommandStore } from '../stores/command'
 import { 
   CopyDocument, 
-  Setting, 
-  CaretRight, 
   More, 
   View, 
   Edit, 
+  CaretRight, 
   DocumentCopy, 
-  Delete, 
-  Grid, 
-  Star, 
-  TrendCharts as Histogram
+  Delete 
 } from '@element-plus/icons-vue'
-import { useCommandStore } from '../stores/command'
-import { showCopySuccess, showExecuteSuccess, toast } from '../utils/toast'
 
 // Props
 const props = defineProps({
@@ -188,254 +113,198 @@ const emit = defineEmits(['copy', 'execute', 'build', 'detail', 'edit', 'delete'
 // Store
 const commandStore = useCommandStore()
 
-// 计算属性 - 升级后的命令
-const enhancedCommand = computed(() => {
-  return commandStore.upgradeCommandParameters(props.command)
+// 获取最近使用的完整命令
+const recentCommandText = computed(() => {
+  // 从构建历史中获取该命令最近一次的完整构建结果
+  const buildHistory = commandStore.buildHistory || []
+  const recentBuild = buildHistory
+    .filter(item => item.templateId === props.command.id)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0]
+  
+  return recentBuild?.finalCommand || props.command.command
 })
 
-// 计算属性 - 参数分类
-const requiredParams = computed(() => {
-  return enhancedCommand.value.parameters?.filter(param => 
-    param.required === true && param.level === 'command'
-  ) || []
+// 显示的最近命令（截断长命令）
+const displayRecentCommand = computed(() => {
+  const maxLength = 80
+  const cmd = recentCommandText.value
+  return cmd.length > maxLength ? cmd.substring(0, maxLength) + '...' : cmd
 })
 
-const optionalParams = computed(() => {
-  return enhancedCommand.value.parameters?.filter(param => 
-    param.required === false && param.level === 'command'
-  ) || []
+// 分类名称
+const categoryName = computed(() => {
+  const category = commandStore.categories.find(cat => cat.id === props.command.category)
+  return category?.name || props.command.category
 })
 
-const optionLevelParams = computed(() => {
-  return enhancedCommand.value.parameters?.filter(param => 
-    param.level === 'option'
-  ) || []
+// 显示的标签（最多3个）
+const displayTags = computed(() => {
+  return props.command.tags?.slice(0, 3) || []
 })
 
-// 事件处理方法
-const handleCardClick = () => {
-  emit('detail', enhancedCommand.value)
-}
+// 额外标签数量
+const extraTagsCount = computed(() => {
+  const totalTags = props.command.tags?.length || 0
+  return Math.max(0, totalTags - 3)
+})
 
-const handleCopy = async () => {
-  try {
-    await navigator.clipboard.writeText(props.command.command)
-    showCopySuccess()
-    commandStore.updateCommandStats(props.command.id)
-  } catch (error) {
-    toast.error('复制失败: ' + error.message)
-  }
+// 事件处理器
+const handleCopyRecentCommand = () => {
+  navigator.clipboard.writeText(recentCommandText.value)
+  emit('copy', recentCommandText.value)
 }
 
 const handleBuild = () => {
-  emit('build', enhancedCommand.value)
-}
-
-const handleExecute = () => {
-  emit('execute', enhancedCommand.value)
-  commandStore.updateCommandStats(props.command.id)
+  emit('build', props.command)
 }
 
 const handleDetail = () => {
-  emit('detail', enhancedCommand.value)
+  emit('detail', props.command)
 }
 
 const handleEdit = () => {
-  emit('edit', enhancedCommand.value)
+  emit('edit', props.command)
+}
+
+const handleExecute = () => {
+  emit('execute', props.command)
 }
 
 const handleDuplicate = () => {
-  emit('duplicate', enhancedCommand.value)
+  emit('duplicate', props.command)
 }
 
 const handleDelete = () => {
-  emit('delete', enhancedCommand.value)
-}
-
-// 工具函数
-const formatLastUsed = (lastUsed) => {
-  if (!lastUsed) return ''
-  
-  const date = new Date(lastUsed)
-  const now = new Date()
-  const diffMs = now - date
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  
-  if (diffDays === 0) {
-    return '今天使用'
-  } else if (diffDays === 1) {
-    return '昨天使用'
-  } else if (diffDays < 7) {
-    return `${diffDays}天前`
-  } else {
-    return date.toLocaleDateString()
-  }
+  emit('delete', props.command)
 }
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .command-card {
-  background: var(--el-fill-color-blank);
+  background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-light);
-  border-radius: var(--el-border-radius-base);
+  border-radius: 8px;
   padding: 16px;
-  cursor: pointer;
+  margin-bottom: 12px;
   transition: all 0.2s ease;
-  
-  &:hover {
-    border-color: var(--el-color-primary);
-    box-shadow: var(--el-box-shadow-light);
+  cursor: pointer;
+}
+
+.command-card:hover {
+  border-color: var(--el-color-primary);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.command-card.is-user-created {
+  border-left: 4px solid var(--el-color-warning);
+}
+
+.card-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* 最近命令区域 (左侧，主要空间) */
+.recent-command-section {
+  flex: 1;
+  min-width: 0; /* 允许内容收缩 */
+}
+
+.command-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recent-command {
+  margin-bottom: 6px;
+}
+
+.command-text {
+  background: var(--el-fill-color-light);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.command-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
+}
+
+/* 分类区域 (中左) */
+.category-section {
+  flex-shrink: 0;
+  min-width: 80px;
+}
+
+/* 标签区域 (中右) */
+.tags-section {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 120px;
+  max-width: 200px;
+}
+
+.tag-item {
+  margin: 0;
+}
+
+/* 操作按钮区域 (最右侧) */
+.actions-section {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .tags-section {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 900px) {
+  .card-content {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
   }
   
-  &.is-user-created {
-    border-left: 4px solid var(--el-color-warning);
+  .recent-command-section {
+    order: 1;
   }
   
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 12px;
-    
-    .command-info {
-      flex: 1;
-      min-width: 0;
-      
-      .command-name {
-        margin: 0 0 4px 0;
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--el-text-color-primary);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-      
-      .command-desc {
-        margin: 0;
-        font-size: 14px;
-        color: var(--el-text-color-secondary);
-        line-height: 1.4;
-      }
-    }
-    
-    .param-stats {
-      margin: 0 12px;
-      
-      .stats-summary {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 12px;
-        color: var(--el-text-color-secondary);
-        
-        .stats-detail {
-          display: flex;
-          gap: 4px;
-          margin-left: 8px;
-        }
-      }
-    }
-    
-    .card-actions {
-      flex-shrink: 0;
-    }
+  .category-section {
+    order: 2;
+    align-self: flex-start;
   }
   
-  .card-body {
-    .command-preview {
-      margin-bottom: 12px;
-      
-      code {
-        display: block;
-        padding: 8px 12px;
-        background: var(--el-fill-color-light);
-        border: 1px solid var(--el-border-color-lighter);
-        border-radius: var(--el-border-radius-small);
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 13px;
-        color: var(--el-text-color-primary);
-        word-break: break-all;
-        white-space: pre-wrap;
-      }
-    }
-    
-    .enhanced-params {
-      margin-bottom: 12px;
-      
-      .param-categories {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        
-        .param-category {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-          
-          .param-list {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-            
-            .param-name {
-              font-size: 11px;
-              padding: 2px 6px;
-              background: var(--el-fill-color-light);
-              border-radius: var(--el-border-radius-small);
-              color: var(--el-text-color-secondary);
-            }
-            
-            .param-more {
-              font-size: 11px;
-              color: var(--el-text-color-placeholder);
-            }
-          }
-          
-          &.required .param-name {
-            background: var(--el-color-danger-light-9);
-            color: var(--el-color-danger);
-          }
-          
-          &.optional .param-name {
-            background: var(--el-color-success-light-9);
-            color: var(--el-color-success);
-          }
-          
-          &.option .param-name {
-            background: var(--el-color-info-light-9);
-            color: var(--el-color-info);
-          }
-        }
-      }
-    }
-    
-    .card-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      
-      .command-tags {
-        display: flex;
-        gap: 4px;
-        flex-wrap: wrap;
-        flex: 1;
-      }
-      
-      .command-meta {
-        display: flex;
-        gap: 12px;
-        font-size: 12px;
-        color: var(--el-text-color-placeholder);
-        
-        .usage-count {
-          display: flex;
-          align-items: center;
-          gap: 2px;
-        }
-      }
-    }
+  .tags-section {
+    order: 3;
+    max-width: none;
+  }
+  
+  .actions-section {
+    order: 4;
+    justify-content: flex-end;
   }
 }
 </style> 

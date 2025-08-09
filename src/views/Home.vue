@@ -120,10 +120,7 @@
         <div class="header-left">
           <h2>{{ headerTitle }}</h2>
           <span class="command-count">{{ displayCommands.length }} 条命令</span>
-          <!-- 调试信息 -->
-          <el-tag type="info" size="small" v-if="process.env.NODE_ENV === 'development'">
-            分类: {{ commandStore.selectedCategory }} | 总命令: {{ commandStore.commands.length }} | 过滤后: {{ commandStore.filteredCommands.length }}
-          </el-tag>
+
           <el-tag v-if="searchQuery" type="warning" size="small">
             搜索: {{ searchQuery }}
           </el-tag>
@@ -290,6 +287,9 @@ const editingCommand = ref(null)
 const searchQuery = ref('')
 const selectedTags = ref([])
 
+// 开发环境标志
+const isDev = import.meta.env.DEV
+
 // 计算属性
 const headerTitle = computed(() => {
   if (commandStore.selectedCategory === 'recent') {
@@ -306,42 +306,10 @@ const headerTitle = computed(() => {
   return category ? category.name : '命令列表'
 })
 
-// 显示的命令列表（使用Store的过滤逻辑）
+// 显示的命令列表（新设计：轻量高效）
 const displayCommands = computed(() => {
-  let commands = []
-  
-  // 特殊处理最近使用命令
-  if (commandStore.selectedCategory === 'recent') {
-    commands = commandStore.recentCommands
-    
-    // 应用搜索过滤
-    if (searchQuery.value.trim()) {
-      const query = searchQuery.value.toLowerCase()
-      commands = commands.filter(cmd => 
-        cmd.name.toLowerCase().includes(query) ||
-        cmd.description?.toLowerCase().includes(query) ||
-        cmd.command.toLowerCase().includes(query) ||
-        cmd.tags?.some(tag => tag.toLowerCase().includes(query))
-      )
-    }
-    
-    // 应用标签过滤
-    if (selectedTags.value.length > 0) {
-      commands = commands.filter(cmd => 
-        cmd.tags && selectedTags.value.some(tag => cmd.tags.includes(tag))
-      )
-    }
-  } else {
-    // 使用Store中已经过滤好的命令列表
-    commands = commandStore.filteredCommands
-  }
-  
-  // 按创建时间排序，新命令在前
-  return commands.sort((a, b) => {
-    const aTime = new Date(a.createdAt || 0).getTime()
-    const bTime = new Date(b.createdAt || 0).getTime()
-    return bTime - aTime // 降序，新的在前
-  })
+  // 直接返回过滤后的命令，新的CommandCard设计无需参数升级
+  return commandStore.filteredCommands
 })
 
 // 搜索功能
@@ -410,10 +378,13 @@ const clearFilters = () => {
 // 监听选定分类的变化
 watch(() => commandStore.selectedCategory, () => {
   // 当分类改变时，重置搜索和标签筛选（避免循环调用）
-  searchQuery.value = ''
-  selectedTags.value = []
-  commandStore.setSearchQuery('')
-  commandStore.setSelectedTags([])
+  // 只在实际有值的时候才清除，避免不必要的更新
+  if (searchQuery.value || selectedTags.value.length > 0) {
+    searchQuery.value = ''
+    selectedTags.value = []
+    commandStore.setSearchQuery('')
+    commandStore.setSelectedTags([])
+  }
 })
 
 // 监听Store中搜索查询的变化
@@ -707,6 +678,8 @@ onMounted(() => {
   // 同步Store中的搜索和标签状态到本地
   searchQuery.value = commandStore.currentSearchQuery
   selectedTags.value = [...commandStore.selectedTags]
+  
+
   
   // 注册全局事件监听器
   window.addEventListener('focus-search', handleFocusSearch)
