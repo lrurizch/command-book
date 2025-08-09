@@ -302,35 +302,34 @@ const headerTitle = computed(() => {
   return category ? category.name : '命令列表'
 })
 
-// 显示的命令列表（增强版）
+// 显示的命令列表（使用Store的过滤逻辑）
 const displayCommands = computed(() => {
   let commands = []
   
-  // 获取基础命令列表
+  // 特殊处理最近使用命令
   if (commandStore.selectedCategory === 'recent') {
     commands = commandStore.recentCommands
-  } else if (commandStore.selectedCategory === 'all') {
-    commands = commandStore.commands.filter(cmd => cmd.category !== 'recycle-bin')
+    
+    // 应用搜索过滤
+    if (searchQuery.value.trim()) {
+      const query = searchQuery.value.toLowerCase()
+      commands = commands.filter(cmd => 
+        cmd.name.toLowerCase().includes(query) ||
+        cmd.description?.toLowerCase().includes(query) ||
+        cmd.command.toLowerCase().includes(query) ||
+        cmd.tags?.some(tag => tag.toLowerCase().includes(query))
+      )
+    }
+    
+    // 应用标签过滤
+    if (selectedTags.value.length > 0) {
+      commands = commands.filter(cmd => 
+        cmd.tags && selectedTags.value.some(tag => cmd.tags.includes(tag))
+      )
+    }
   } else {
-    commands = commandStore.commands.filter(cmd => cmd.category === commandStore.selectedCategory)
-  }
-  
-  // 应用搜索过滤
-  if (searchQuery.value.trim()) {
-    const query = searchQuery.value.toLowerCase()
-    commands = commands.filter(cmd => 
-      cmd.name.toLowerCase().includes(query) ||
-      cmd.description?.toLowerCase().includes(query) ||
-      cmd.command.toLowerCase().includes(query) ||
-      cmd.tags?.some(tag => tag.toLowerCase().includes(query))
-    )
-  }
-  
-  // 应用标签过滤
-  if (selectedTags.value.length > 0) {
-    commands = commands.filter(cmd => 
-      cmd.tags && selectedTags.value.some(tag => cmd.tags.includes(tag))
-    )
+    // 使用Store中已经过滤好的命令列表
+    commands = commandStore.filteredCommands
   }
   
   // 按创建时间排序，新命令在前
@@ -403,6 +402,22 @@ const clearFilters = () => {
   commandStore.setSearchQuery('')
   commandStore.setSelectedTags([])
 }
+
+// 监听选定分类的变化
+watch(() => commandStore.selectedCategory, () => {
+  // 当分类改变时，重置搜索和标签筛选
+  clearFilters()
+})
+
+// 监听Store中搜索查询的变化
+watch(() => commandStore.currentSearchQuery, (newQuery) => {
+  searchQuery.value = newQuery
+})
+
+// 监听Store中选中标签的变化
+watch(() => commandStore.selectedTags, (newTags) => {
+  selectedTags.value = [...newTags]
+}, { deep: true })
 
 // 按钮点击处理
 const handleAddClick = () => {
@@ -681,6 +696,10 @@ watch(() => commandStore.editingCommand, (newCommand) => {
 onMounted(() => {
   // 初始化快捷键
   keyboardStore.initShortcuts()
+  
+  // 同步Store中的搜索和标签状态到本地
+  searchQuery.value = commandStore.currentSearchQuery
+  selectedTags.value = [...commandStore.selectedTags]
   
   // 注册全局事件监听器
   window.addEventListener('focus-search', handleFocusSearch)
