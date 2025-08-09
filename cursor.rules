@@ -1,0 +1,88 @@
+---
+name: cursor-rules
+version: 1.2
+autoload: true
+description: Cursor AI 助手工作规范
+---
+
+# 核心工作原则 (Core Principles)
+
+## 1. 代码修改原则 (Code Modification)
+- **保护现有功能**: 永远不要删除或破坏当前正在使用的功能代码。
+  - **优先扩展**: 对于功能修改，应优先采用扩展的方式，而非直接删除旧代码。
+  - **确认意图**: 在进行重大重构或删除操作前，必须与用户确认意图。
+
+## 2. 文档同步原则 (Documentation Synchronization)
+- **严格的文档同步**: 对项目的任何功能进行更新（**无论变更大小，哪怕只是一个微小的调整**），都必须立即更新根目录下的 `FEATURES.md` 功能文档。
+- **保持准确**: 确保功能文档的描述与项目的实际行为**完全一致**。
+
+# 基础规则 (Basic Rules)
+
+## 1. 交流规则 (Communication)
+- language: zh-CN
+- format: markdown
+- style: professional
+- context: always_preserve
+
+## 2. 代码规则 (Coding)
+- framework: element-plus
+- style: element-plus-design-tokens
+- naming: 
+  - css: kebab-case
+  - js: camelCase
+  - component: PascalCase
+
+## 3. Git规则 (Git Workflow)
+- **提交频率 (Commit Frequency)**: 每当完成一项有意义的代码改动并通过所有相关测试后，都必须立即进行一次 Git 提交。
+- **分支规范 (Branching)**: `feature/*`, `fix/*`, `optimize/*`
+- **提交信息 (Commit Message)**:
+  - **格式**: `<type>: <description> - <YYYY-MM-DD HH:MM:SS>`
+  - **测试要求**: 提交前必须确保所有相关测试通过 (`test-passed`)。
+- **合并策略 (Merge Strategy)**: 只能使用 Rebase 方式合并 (`rebase-only`)。
+
+## 4. 工作流规则 (Workflow)
+- planning: required
+- todo: use-todo-write
+- testing: required
+- review: required
+
+# 规则生效机制 (Rule Enforcement)
+
+## 1. 自动加载
+- 每次对话开始时自动加载所有规则。
+- 规则优先级按照定义顺序执行。
+
+## 2. 规则检查
+- 每次响应前检查是否符合所有规则。
+- 违反规则时提供警告并建议修正。
+
+## 3. 规则覆盖
+- 用户可以通过显式指令临时覆盖规则。
+- 覆盖规则仅在当前对话中生效。
+
+## 4. 规则更新
+- 规则文件变更后自动重新加载。
+- 保持规则版本号与更新记录。
+
+# 规则验证 (Rule Validation)
+
+## 1. 交流验证
+- 检查语言是否为中文。
+- 检查格式是否为markdown。
+- 检查上下文是否保持。
+
+## 2. 代码验证
+- 检查是否符合Element Plus规范。
+- 检查命名是否符合规范。
+- 检查样式是否使用设计令牌。
+
+## 3. Git验证
+- 检查分支名称格式。
+- 检查提交信息格式。
+- 检查测试是否通过。
+
+## 4. 工作流验证
+- 检查是否创建任务计划。
+- 检查是否使用todo工具。
+- 检查是否完成测试。
+- 检查是否进行代码审查。 

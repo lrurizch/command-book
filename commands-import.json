@@ -1,0 +1,200 @@
+{
+  "commands": [
+    {
+      "name": "Git 查看状�?,
+      "command": "git status",
+      "description": "查看当前Git仓库的状�?,
+      "category": "git",
+      "tags": ["git", "status", "版本控制"]
+    },
+    {
+      "name": "Git 添加所有文�?,
+      "command": "git add .",
+      "description": "将所有修改的文件添加到暂存区",
+      "category": "git",
+      "tags": ["git", "add", "暂存"]
+    },
+    {
+      "name": "Git 提交更改",
+      "command": "git commit -m \"{{message}}\"",
+      "description": "提交暂存区的更改并添加提交信�?,
+      "category": "git",
+      "tags": ["git", "commit", "提交"],
+      "parameters": [
+        {
+          "name": "message",
+          "description": "提交信息",
+          "required": true,
+          "defaultValue": ""
+        }
+      ]
+    },
+    {
+      "name": "Git 推送到远程",
+      "command": "git push origin {{branch}}",
+      "description": "将本地分支推送到远程仓库",
+      "category": "git",
+      "tags": ["git", "push", "远程"],
+      "parameters": [
+        {
+          "name": "branch",
+          "description": "分支名称",
+          "required": true,
+          "defaultValue": "main"
+        }
+      ]
+    },
+    {
+      "name": "Docker 查看容器",
+      "command": "docker ps -a",
+      "description": "显示所有容器（包括已停止的�?,
+      "category": "docker",
+      "tags": ["docker", "container", "查看"]
+    },
+    {
+      "name": "Docker 运行容器",
+      "command": "docker run -d --name {{name}} -p {{port}}:80 {{image}}",
+      "description": "后台运行一个Docker容器",
+      "category": "docker",
+      "tags": ["docker", "run", "容器"],
+      "parameters": [
+        {
+          "name": "name",
+          "description": "容器名称",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "name": "port",
+          "description": "端口映射",
+          "required": true,
+          "defaultValue": "8080"
+        },
+        {
+          "name": "image",
+          "description": "镜像名称",
+          "required": true,
+          "defaultValue": "nginx"
+        }
+      ]
+    },
+    {
+      "name": "NPM 安装依赖",
+      "command": "npm install {{package}}",
+      "description": "安装指定的NPM�?,
+      "category": "npm",
+      "tags": ["npm", "install", "依赖"],
+      "parameters": [
+        {
+          "name": "package",
+          "description": "包名�?,
+          "required": true,
+          "defaultValue": ""
+        }
+      ]
+    },
+    {
+      "name": "NPM 全局安装",
+      "command": "npm install -g {{package}}",
+      "description": "全局安装NPM�?,
+      "category": "npm",
+      "tags": ["npm", "global", "全局安装"],
+      "parameters": [
+        {
+          "name": "package",
+          "description": "包名�?,
+          "required": true,
+          "defaultValue": ""
+        }
+      ]
+    },
+    {
+      "name": "系统进程查看",
+      "command": "tasklist | findstr {{process}}",
+      "description": "查找指定的系统进�?,
+      "category": "system",
+      "tags": ["system", "process", "进程"],
+      "parameters": [
+        {
+          "name": "process",
+          "description": "进程名称",
+          "required": true,
+          "defaultValue": ""
+        }
+      ]
+    },
+    {
+      "name": "网络连接测试",
+      "command": "ping -t {{host}}",
+      "description": "持续ping指定主机",
+      "category": "network",
+      "tags": ["network", "ping", "连接测试"],
+      "parameters": [
+        {
+          "name": "host",
+          "description": "主机地址",
+          "required": true,
+          "defaultValue": "google.com"
+        }
+      ]
+    },
+    {
+      "name": "端口扫描",
+      "command": "netstat -an | findstr {{port}}",
+      "description": "查看指定端口的使用情�?,
+      "category": "network",
+      "tags": ["network", "port", "端口"],
+      "parameters": [
+        {
+          "name": "port",
+          "description": "端口�?,
+          "required": true,
+          "defaultValue": "80"
+        }
+      ]
+    },
+    {
+      "name": "MySQL 连接",
+      "command": "mysql -u {{username}} -p{{password}} -h {{host}} {{database}}",
+      "description": "连接到MySQL数据�?,
+      "category": "database",
+      "tags": ["mysql", "database", "连接"],
+      "parameters": [
+        {
+          "name": "username",
+          "description": "用户�?,
+          "required": true,
+          "defaultValue": "root"
+        },
+        {
+          "name": "password",
+          "description": "密码",
+          "required": true,
+          "defaultValue": ""
+        },
+        {
+          "name": "host",
+          "description": "主机地址",
+          "required": false,
+          "defaultValue": "localhost"
+        },
+        {
+          "name": "database",
+          "description": "数据库名",
+          "required": true,
+          "defaultValue": ""
+        }
+      ]
+    }
+  ],
+  "categories": [
+    { "id": "git", "name": "Git", "color": "#f14e32" },
+    { "id": "docker", "name": "Docker", "color": "#2496ed" },
+    { "id": "npm", "name": "NPM", "color": "#cb3837" },
+    { "id": "system", "name": "系统命令", "color": "#28a745" },
+    { "id": "database", "name": "数据�?, "color": "#336791" },
+    { "id": "network", "name": "网络工具", "color": "#ff6b35" }
+  ],
+  "exportedAt": "2024-01-20T10:00:00.000Z",
+  "version": "1.0.0"
+} 

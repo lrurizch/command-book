@@ -1,0 +1,27 @@
+{
+  "name": "utools-command-handbook",
+  "version": "1.0.0",
+  "description": "uTools命令手册插件",
+  "main": "index.html",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "element-plus": "^2.10.6",
+    "fuse.js": "^6.6.2",
+    "highlight.js": "^11.8.0",
+    "pinia": "^2.1.6",
+    "sortablejs": "^1.15.6",
+    "vue": "^3.3.4",
+    "vue-router": "^4.2.4"
+  },
+  "devDependencies": {
+    "@types/sortablejs": "^1.15.8",
+    "@vitejs/plugin-vue": "^4.3.4",
+    "sass": "^1.66.1",
+    "vite": "^4.4.9"
+  }
+}
