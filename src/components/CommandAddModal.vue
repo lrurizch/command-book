@@ -925,7 +925,7 @@
               <span class="option-prefix">-</span>
               <el-input
                 v-model="newOptionForm.shortName"
-                placeholder="如: h, v, f"
+                placeholder="h, v, f"
                 clearable
                 maxlength="1"
                 show-word-limit
@@ -938,15 +938,19 @@
               <span class="option-prefix">--</span>
               <el-input
                 v-model="newOptionForm.longName"
-                placeholder="如: help, version, file"
+                placeholder="help, version, file"
                 clearable
                 maxlength="20"
               />
             </div>
-            <div v-if="!newOptionForm.shortName && !newOptionForm.longName" class="validation-hint">
-              <span class="hint-text">请至少填写短选项名或长选项名中的一个</span>
-            </div>
           </div>
+        </div>
+        
+        <div class="option-name-hint">
+          <span class="hint-text">
+            <span v-if="!newOptionForm.shortName && !newOptionForm.longName" class="required-hint">⚠ </span>
+            请填写短选项名（单字符，如 -h）或长选项名（多字符，如 --help），至少选择其中一个。前缀横线会自动添加。
+          </span>
         </div>
         
         <div class="form-group">
@@ -3315,18 +3319,16 @@ watch(() => props.editingCommand, (newCommand) => {
     }
   }
   
-  .validation-hint {
-    margin-top: var(--el-spacing-xs);
+  .option-name-hint {
+    margin-top: var(--el-spacing-sm);
     
     .hint-text {
-      font-size: var(--el-font-size-extra-small);
-      color: var(--el-color-warning);
-      display: flex;
-      align-items: center;
+      font-size: var(--el-font-size-small);
+      color: var(--el-text-color-secondary);
+      line-height: 1.4;
       
-      &:before {
-        content: "⚠";
-        margin-right: var(--el-spacing-xs);
+      .required-hint {
+        color: var(--el-color-warning);
         font-weight: bold;
       }
     }
