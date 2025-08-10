@@ -958,6 +958,16 @@
           </div>
         </div>
         
+        <!-- 参数名称 -->
+        <div class="form-group">
+          <label class="form-label">参数名称</label>
+          <el-input
+            v-model="newOptionForm.parameterName"
+            placeholder="输入参数名称"
+            class="parameter-name-input"
+          />
+        </div>
+        
 
         
         <div v-if="newOptionForm.parameters.length > 0" class="params-list">
@@ -967,11 +977,7 @@
             class="param-item"
           >
             <div class="param-header">
-              <el-input
-                v-model="param.name"
-                placeholder="参数名称"
-                class="param-name"
-              />
+              <span class="param-title">常用参数值 #{{ index + 1 }}</span>
               <el-button
                 type="danger"
                 size="small"
@@ -2087,6 +2093,7 @@ const newOptionForm = ref({
     description: '',
     type: ParameterType.OPTIONAL,
   valueType: ParameterValueType.OPTIONAL, // 默认可选参数
+    parameterName: '',  // 参数名称
     parameters: []
   })
 
@@ -2115,6 +2122,7 @@ const addOption = () => {
     valueType: ParameterValueType.OPTIONAL, // 默认可选参数
     commandSeparator: ' ',              // 命令与选项间分隔符，默认空格
     optionSeparator: ' ',               // 选项与参数间分隔符，默认空格
+    parameterName: '',                  // 参数名称
     parameters: []
   }
   defaultOptionParam.value = null // 重置默认参数选择
@@ -2218,7 +2226,6 @@ const addNewOptionParameter = () => {
     newOptionForm.value.parameters = []
   }
   newOptionForm.value.parameters.push({
-    name: '',           // 参数名称
     commonValues: [],   // 常用参数值数组
     defaultValue: ''    // 默认参数值（从常用值中选择）
   })
@@ -3556,11 +3563,13 @@ watch(() => props.editingCommand, (newCommand) => {
       .param-header {
         display: flex;
         align-items: center;
-        gap: var(--el-spacing-sm);
+        justify-content: space-between;
         margin-bottom: var(--el-spacing-md);
         
-        .param-name {
-          flex: 1;
+        .param-title {
+          font-weight: 600;
+          color: var(--el-text-color-primary);
+          font-size: var(--el-font-size-small);
         }
       }
       
