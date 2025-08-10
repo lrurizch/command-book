@@ -688,6 +688,19 @@
                 </div>
                 
                 <div class="form-group">
+                  <label class="form-label">分隔符</label>
+                  <el-input
+                    v-model="param.separator"
+                    placeholder="空格"
+                    maxlength="5"
+                    class="param-separator-input"
+                  />
+                  <span class="form-help">命令与参数间的分隔符，默认为空格</span>
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
                   <el-checkbox 
                     :model-value="defaultCommandParam === index"
                     @change="(checked) => handleDefaultCommandParamChange(index, checked)"
@@ -967,6 +980,16 @@
               placeholder="参数描述"
               class="param-desc"
             />
+            <div class="param-separator-group">
+              <label class="separator-label">分隔符:</label>
+              <el-input
+                v-model="param.separator"
+                placeholder="空格"
+                class="param-separator"
+                maxlength="5"
+              />
+              <span class="separator-hint">选项与参数间的分隔符</span>
+            </div>
             <el-checkbox 
               :model-value="defaultOptionParam === index"
               @change="(checked) => handleDefaultOptionParamChange(index, checked)"
@@ -1305,7 +1328,8 @@ const addParameter = (paramName) => {
       name: paramName,
       description: '',
       required: false,
-      defaultValue: ''
+      defaultValue: '',
+      separator: ' '  // 默认为空格
     })
   }
   
@@ -1326,7 +1350,8 @@ const addCustomParameter = () => {
   form.value.parameters.push({
     name: '',
     description: '',
-    defaultValue: ''
+    defaultValue: '',
+    separator: ' '  // 默认为空格
   })
 }
 
@@ -1936,7 +1961,8 @@ const addNewOptionParameter = () => {
   }
   newOptionForm.value.parameters.push({
     name: '',
-    description: ''
+    description: '',
+    separator: ' '  // 默认为空格
   })
 }
 
@@ -3191,6 +3217,29 @@ watch(() => props.editingCommand, (newCommand) => {
     .param-default {
       flex: 0 0 80px;
     }
+    
+    .param-separator-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--el-spacing-xs);
+      flex: 0 0 140px;
+      
+      .separator-label {
+        font-size: var(--el-font-size-extra-small);
+        color: var(--el-text-color-secondary);
+        margin: 0;
+      }
+      
+      .param-separator {
+        width: 100%;
+      }
+      
+      .separator-hint {
+        font-size: var(--el-font-size-extra-small);
+        color: var(--el-text-color-placeholder);
+        line-height: 1.2;
+      }
+    }
   }
   }
   
@@ -3247,6 +3296,10 @@ watch(() => props.editingCommand, (newCommand) => {
       font-size: var(--el-font-size-small);
       color: var(--el-text-color-secondary);
     }
+  }
+  
+  .param-separator-input {
+    max-width: 100px;
   }
   
   .param-tag {
