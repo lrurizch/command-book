@@ -410,10 +410,10 @@
         </div>
       </div>
 
-      <!-- 常用参数组合 -->
+      <!-- 常用选项参数 -->
       <div class="form-section">
         <h3 class="section-title">
-          常用参数组合
+          常用选项参数
           <span v-if="isEditing && getFieldChanges().commonParameters" class="changed-indicator">已修改</span>
         </h3>
         <div class="common-params-container">
@@ -1083,38 +1083,48 @@
     </template>
   </el-dialog>
 
-  <!-- 常用参数选择对话框 -->
+  <!-- 常用选项参数选择对话框 -->
   <el-dialog
     v-model="showCommonParamsDialog"
-    title="选择常用参数"
-    width="600px"
+    title="选择已有选项和参数"
+    width="700px"
   >
     <div class="common-params-selection">
-      <p>从下面的常用参数模板中选择要添加的参数：</p>
+      <p>从当前命令已添加的选项和参数中选择：</p>
       
-      <div class="params-categories">
+      <div v-if="Object.keys(filteredCommonParams).length === 0" class="empty-state">
+        <p>当前命令还没有添加任何选项或参数</p>
+        <p class="hint">请先在命令中添加选项或参数，然后再使用此功能</p>
+      </div>
+      <div v-else class="params-categories">
         <div 
-          v-for="(params, category) in groupedCommonParams" 
+          v-for="(params, category) in filteredCommonParams" 
           :key="category"
           class="param-category"
         >
-          <h4 class="category-title">{{ category }}</h4>
+          <h4 class="category-title">{{ category }} ({{ params.length }}项)</h4>
           <div class="params-grid">
             <el-checkbox-group v-model="selectedCommonParams">
               <el-checkbox 
-                v-for="param in params" 
-                :key="param.index"
-                :value="param.index"
+                v-for="(param, paramIndex) in params" 
+                :key="`${category}-${paramIndex}`"
+                :value="`${category}-${paramIndex}`"
                 class="param-checkbox"
               >
                 <div class="param-item">
                   <strong>{{ param.name }}</strong>
                   <span class="param-desc">{{ param.description }}</span>
                   <el-tag 
-                    :type="param.type === ParameterType.REQUIRED ? 'danger' : 'info'" 
+                    :type="param.paramType === ParameterType.REQUIRED ? 'danger' : (param.paramType === ParameterType.OPTIONAL ? 'info' : 'warning')" 
                     size="small"
                   >
-                    {{ param.type === ParameterType.REQUIRED ? '必选' : '可选' }}
+                    {{ param.paramType === ParameterType.REQUIRED ? '必选' : (param.paramType === ParameterType.OPTIONAL ? '可选' : '禁用') }}
+                  </el-tag>
+                  <el-tag 
+                    :type="param.type === 'option' ? 'success' : (param.type === 'option-param' ? 'primary' : '')"
+                    size="small"
+                  >
+                    {{ param.type === 'option' ? '选项' : (param.type === 'option-param' ? '选项参数' : '命令参数') }}
                   </el-tag>
                 </div>
               </el-checkbox>
@@ -2226,22 +2236,30 @@ const commonParamTemplates = [
   { name: 'min', description: '最小值', category: '数量' },
 ]
 
-// 常用参数对话框
+// 已有选项参数对话框
 const showCommonParamsDialog = ref(false)
 const currentOptionIndex = ref(-1)
 const selectedCommonParams = ref([])
 
-// 显示常用参数选择对话框
+// 显示已有选项参数选择对话框
 const showCommonParamsModal = (optionIndex = -1) => {
+  const existingData = getExistingOptionsAndParams.value
+  const hasData = existingData['选项'].length > 0 || existingData['命令级参数'].length > 0
+  
+  if (!hasData) {
+    ElMessage.warning('当前命令还没有添加任何选项或参数')
+    return
+  }
+  
   currentOptionIndex.value = optionIndex
   selectedCommonParams.value = []
   showCommonParamsDialog.value = true
 }
 
-// 确认添加常用参数
+// 确认添加常用选项参数
 const confirmAddCommonParams = () => {
   if (selectedCommonParams.value.length === 0) {
-    ElMessage.warning('请选择要添加的常用参数')
+    ElMessage.warning('请选择要添加的选项或参数')
     return
   }
   
@@ -2258,29 +2276,116 @@ const confirmAddCommonParams = () => {
     targetOption.parameters = []
   }
   
-  // 添加选中的常用参数
-  selectedCommonParams.value.forEach(templateIndex => {
-    const template = commonParamTemplates[templateIndex]
-    targetOption.parameters.push({
-      name: template.name,
-      description: template.description
-    })
+  let addedCount = 0
+  const existingOptionsAndParams = getExistingOptionsAndParams.value
+  
+  // 添加选中的选项和参数
+  selectedCommonParams.value.forEach(selectedKey => {
+    const [category, paramIndex] = selectedKey.split('-')
+    const item = existingOptionsAndParams[category][parseInt(paramIndex)]
+    
+    if (item.type === 'option') {
+      // 复制整个选项到目标位置（作为参数使用选项名）
+      targetOption.parameters.push({
+        name: item.name,
+        description: `复制的选项: ${item.description}`,
+        type: item.paramType || ParameterType.OPTIONAL
+      })
+      addedCount++
+    } else if (item.type === 'option-param') {
+      // 复制选项的参数
+      targetOption.parameters.push({
+        name: item.data.name,
+        description: item.data.description || item.description,
+        type: item.paramType || ParameterType.OPTIONAL,
+        defaultValue: item.data.defaultValue
+      })
+      addedCount++
+    } else if (item.type === 'command-param') {
+      // 复制命令级参数
+      targetOption.parameters.push({
+        name: item.data.name,
+        description: item.data.description || item.description,
+        type: item.paramType || ParameterType.OPTIONAL,
+        defaultValue: item.data.defaultValue
+      })
+      addedCount++
+    }
   })
   
   showCommonParamsDialog.value = false
-  ElMessage.success(`已添加 ${selectedCommonParams.value.length} 个常用参数`)
+  ElMessage.success(`已添加 ${addedCount} 个选项/参数`)
 }
 
-// 按分类分组常用参数
-const groupedCommonParams = computed(() => {
-  const groups = {}
-  commonParamTemplates.forEach((param, index) => {
-    if (!groups[param.category]) {
-      groups[param.category] = []
-    }
-    groups[param.category].push({ ...param, index })
-  })
+// 获取已添加的选项和参数
+const getExistingOptionsAndParams = computed(() => {
+  const groups = {
+    '选项': [],
+    '命令级参数': []
+  }
+  
+  // 添加已有选项
+  if (form.value.options && form.value.options.length > 0) {
+    form.value.options.forEach((option, optionIndex) => {
+      // 添加选项本身
+      groups['选项'].push({
+        type: 'option',
+        name: option.shortName ? `-${option.shortName}` : (option.longName ? `--${option.longName}` : '未命名选项'),
+        description: option.description || '无描述',
+        data: option,
+        sourceIndex: optionIndex,
+        paramType: option.type
+      })
+      
+      // 添加选项的参数
+      if (option.parameters && option.parameters.length > 0) {
+        option.parameters.forEach((param, paramIndex) => {
+          groups['选项'].push({
+            type: 'option-param',
+            name: `${option.shortName ? `-${option.shortName}` : `--${option.longName}`} ${param.name}`,
+            description: param.description || '无描述',
+            data: param,
+            sourceIndex: optionIndex,
+            paramIndex: paramIndex,
+            paramType: param.type
+          })
+        })
+      }
+    })
+  }
+  
+  // 添加命令级参数
+  if (form.value.parameters && form.value.parameters.length > 0) {
+    form.value.parameters.forEach((param, paramIndex) => {
+      groups['命令级参数'].push({
+        type: 'command-param',
+        name: param.name,
+        description: param.description || '无描述',
+        data: param,
+        sourceIndex: paramIndex,
+        paramType: param.type
+      })
+    })
+  }
+  
   return groups
+})
+
+// 按分类分组常用参数（修改为使用已有选项和参数）
+const groupedCommonParams = computed(() => {
+  return getExistingOptionsAndParams.value
+})
+
+// 过滤掉空的分类
+const filteredCommonParams = computed(() => {
+  const groups = groupedCommonParams.value
+  const filtered = {}
+  Object.keys(groups).forEach(category => {
+    if (groups[category].length > 0) {
+      filtered[category] = groups[category]
+    }
+  })
+  return filtered
 })
 
 // 判断是否为默认参数
@@ -3434,6 +3539,22 @@ watch(() => props.editingCommand, (newCommand) => {
           }
         }
       }
+    }
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: var(--el-spacing-xl);
+    color: var(--el-text-color-secondary);
+    
+    p {
+      margin: var(--el-spacing-sm) 0;
+      font-size: var(--el-font-size-base);
+    }
+    
+    .hint {
+      font-size: var(--el-font-size-small);
+      color: var(--el-text-color-placeholder);
     }
   }
 }
