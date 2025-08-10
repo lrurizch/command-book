@@ -872,7 +872,7 @@
               maxlength="5"
               class="command-separator-input"
             />
-            <span class="separator-hint-inline">默认空格，可用 =、: 等</span>
+            <span class="separator-hint-inline">{{ commandSeparatorDescription }}</span>
           </div>
         </div>
         
@@ -954,15 +954,11 @@
               maxlength="5"
               class="option-separator-input"
             />
-            <span class="separator-hint-inline">默认空格，可用 =、: 等</span>
+            <span class="separator-hint-inline">{{ optionSeparatorDescription }}</span>
           </div>
         </div>
         
-        <div class="separator-hint">
-          <span class="hint-text">
-            分隔符用于连接命令的不同部分（如空格、等号=、冒号:等），默认均为空格。可根据具体命令的语法要求自定义。
-          </span>
-        </div>
+
         
         <div v-if="newOptionForm.parameters.length > 0" class="params-list">
           <div
@@ -2101,6 +2097,28 @@ const addOption = () => {
 const shouldShowParameterConfig = computed(() => {
   return newOptionForm.value.valueType === ParameterValueType.REQUIRED || 
          newOptionForm.value.valueType === ParameterValueType.OPTIONAL
+})
+
+// 获取分隔符的描述
+const getSeparatorDescription = (separator) => {
+  if (!separator || separator === ' ') {
+    return '当前：空格'
+  }
+  const separatorSymbol = symbolsByCategory.value.separator?.find(s => s.symbol === separator)
+  if (separatorSymbol) {
+    return `当前：${separatorSymbol.name}（${separator}）`
+  }
+  return `当前：${separator}`
+}
+
+// 命令与选项间分隔符描述
+const commandSeparatorDescription = computed(() => {
+  return getSeparatorDescription(newOptionForm.value.commandSeparator)
+})
+
+// 选项与参数间分隔符描述  
+const optionSeparatorDescription = computed(() => {
+  return getSeparatorDescription(newOptionForm.value.optionSeparator)
 })
 
 // 检查选项是否应该显示参数
