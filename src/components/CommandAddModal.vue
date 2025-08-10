@@ -637,7 +637,7 @@
           <label class="form-label">命令与参数间分隔符</label>
                     <el-input
             v-model="form.commandParameterSeparator"
-            placeholder="不填写默认为空格"
+            placeholder="不添加分隔符默认为空格"
             maxlength="5"
             class="command-parameter-separator-input"
           />
@@ -715,7 +715,7 @@
                   <label class="form-label">分隔符</label>
                   <el-input
                     v-model="param.separator"
-                    placeholder="不填写默认为空格"
+                    placeholder="不添加分隔符默认为空格"
                     maxlength="5"
                     class="param-separator-input"
                   />
@@ -923,7 +923,7 @@
           <label class="form-label">命令与选项间分隔符</label>
           <el-input
             v-model="newOptionForm.commandSeparator"
-            placeholder="不填写默认为空格"
+            placeholder="不添加分隔符默认为空格"
             maxlength="5"
             class="command-separator-input"
           />
@@ -1005,7 +1005,7 @@
           <label class="form-label">选项与参数间分隔符</label>
           <el-input
             v-model="newOptionForm.optionSeparator"
-            placeholder="不填写默认为空格"
+            placeholder="不添加分隔符默认为空格"
             maxlength="5"
             class="option-separator-input"
           />
