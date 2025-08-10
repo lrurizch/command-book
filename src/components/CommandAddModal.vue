@@ -972,11 +972,6 @@
                 placeholder="参数名称"
                 class="param-name"
               />
-              <el-input
-                v-model="param.value"
-                placeholder="参数值"
-                class="param-value"
-              />
               <el-button
                 type="danger"
                 size="small"
@@ -2232,9 +2227,8 @@ const addNewOptionParameter = () => {
   }
   newOptionForm.value.parameters.push({
     name: '',           // 参数名称
-    value: '',          // 参数值
     commonValues: [],   // 常用参数值数组
-    defaultValue: ''    // 默认参数值
+    defaultValue: ''    // 默认参数值（从常用值中选择）
   })
 }
 
@@ -3560,10 +3554,6 @@ watch(() => props.editingCommand, (newCommand) => {
         margin-bottom: var(--el-spacing-md);
         
         .param-name {
-          flex: 0 0 150px;
-        }
-        
-        .param-value {
           flex: 1;
         }
       }
