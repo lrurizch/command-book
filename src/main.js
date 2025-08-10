@@ -102,10 +102,10 @@ document.addEventListener('keydown', (e) => {
     window.dispatchEvent(new CustomEvent('focus-search'))
   }
   
-  // Ctrl/Cmd + N 新建命令
+        // Ctrl/Cmd + N 新建命令模板
   if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
     e.preventDefault()
-    // 触发新建命令事件
+          // 触发新建命令模板事件
     window.dispatchEvent(new CustomEvent('new-command'))
   }
   

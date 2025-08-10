@@ -6,14 +6,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import Fuse from 'fuse.js'
-import { 
-  CommandTemplate,
-  CommandBuilder,
-  TemplateFactory,
-  ParameterType,
-  DataType,
-  SymbolCategory
-} from '../utils/commandBuilder.js'
+// 简化模式，不再需要复杂的构建器类
 
 // 使用内置模板，不再导入外部数据文件
 
@@ -1557,35 +1550,121 @@ export const useCommandStore = defineStore('command', () => {
    */
   const initializeData = () => {
     try {
-      // 创建内置模板示例
-      const templates = [
-        TemplateFactory.createGitTemplate(),
-        TemplateFactory.createDockerTemplate(),
-        TemplateFactory.createFileTemplate()
-      ]
-      
-      templates.forEach((template, index) => {
-        const commandData = {
-          id: `template-${index + 1}`,
-          name: template.name,
-          description: `${template.name} 命令模板`,
-          category: template.category,
-          tags: template.tags,
-          templateData: template.toConfig(),
+      // 创建内置简单模板示例
+      const simpleTemplates = [
+        {
+          id: 'template-git',
+          name: 'Git 常用命令',
+          description: 'Git 版本控制常用命令模板',
+          category: 'version-control',
+          tags: ['git', '版本控制'],
+          templateData: {
+            name: 'git',
+            category: 'version-control',
+            tags: ['git', '版本控制'],
+            subcommands: [
+              { name: 'add', description: '添加文件到暂存区' },
+              { name: 'commit', description: '提交更改' },
+              { name: 'push', description: '推送到远程仓库' },
+              { name: 'pull', description: '拉取远程更改' }
+            ],
+            options: [
+              { name: 'message', shortFlag: '-m', description: '提交消息' },
+              { name: 'all', shortFlag: '-a', description: '添加所有文件' }
+            ],
+            parameters: [
+              { 
+                name: 'file', 
+                commonValues: [
+                  { value: '*.js' },
+                  { value: '*.vue' },
+                  { value: '.' }
+                ], 
+                defaultValueIndex: 2, 
+                required: false 
+              },
+              { 
+                name: 'branch', 
+                commonValues: [
+                  { value: 'main' },
+                  { value: 'master' },
+                  { value: 'develop' }
+                ], 
+                defaultValueIndex: 0, 
+                required: false 
+              }
+            ],
+            commonCommands: [
+              { name: '提交所有更改', command: 'git add . && git commit -m "提交消息"' },
+              { name: '推送到远程', command: 'git push origin main' }
+            ]
+          },
+          isUserCreated: false,
+          isSystemExample: true,
+          created: new Date(),
+          updated: new Date()
+        },
+        {
+          id: 'template-npm',
+          name: 'NPM 包管理',
+          description: 'NPM 包管理常用命令模板',
+          category: 'package-manager',
+          tags: ['npm', '包管理'],
+          templateData: {
+            name: 'npm',
+            category: 'package-manager',
+            tags: ['npm', '包管理'],
+            subcommands: [
+              { name: 'install', description: '安装依赖包' },
+              { name: 'run', description: '运行脚本' },
+              { name: 'start', description: '启动应用' }
+            ],
+            options: [
+              { name: 'save', shortFlag: '-S', description: '保存到dependencies' },
+              { name: 'dev', shortFlag: '-D', description: '保存到devDependencies' }
+            ],
+            parameters: [
+              { 
+                name: 'package', 
+                commonValues: [
+                  { value: 'vue' },
+                  { value: 'react' },
+                  { value: 'axios' }
+                ], 
+                defaultValueIndex: -1, 
+                required: true 
+              },
+              { 
+                name: 'script', 
+                commonValues: [
+                  { value: 'dev' },
+                  { value: 'start' },
+                  { value: 'build' }
+                ], 
+                defaultValueIndex: 1, 
+                required: false 
+              }
+            ],
+            commonCommands: [
+              { name: '安装依赖', command: 'npm install' },
+              { name: '启动开发服务器', command: 'npm run dev' }
+            ]
+          },
           isUserCreated: false,
           isSystemExample: true,
           created: new Date(),
           updated: new Date()
         }
-        commands.value.push(commandData)
-      })
+      ]
+      
+      commands.value.push(...simpleTemplates)
       
       // 如果没有用户数据，创建初始示例
       if (commands.value.filter(cmd => cmd.isUserCreated).length === 0) {
         createInitialUserData()
       }
       
-      console.log(`已加载 ${templates.length} 个系统模板`)
+      console.log(`已加载 ${simpleTemplates.length} 个系统模板`)
       
     } catch (error) {
       console.error('初始化命令数据失败:', error)
@@ -1610,38 +1689,39 @@ export const useCommandStore = defineStore('command', () => {
     categories.value.push(userCategory)
     
     // 创建一个用户示例命令模板
-    const userTemplate = new CommandTemplate({
-      name: 'npm',
-      category: 'my-custom-commands',
-      tags: ['开发', '启动', '自定义']
-    })
-    .addSubcommand({ 
-      name: 'run', 
-      description: '运行脚本' 
-    })
-    .addSubcommand({ 
-      name: 'start', 
-      description: '启动应用' 
-    })
-    .addOption({ 
-      name: 'port', 
-      longFlag: '--port', 
-      description: '指定端口号',
-      hasParameter: true
-    })
-    .addCommonCommand({
-      name: '启动开发服务器',
-      command: 'npm run dev --port 3000',
-      description: '在3000端口启动开发服务器'
-    })
-    
     const userCommand = {
       id: generateId(),
       name: '快速启动项目',
       description: '开发项目快速启动命令模板',
       category: 'my-custom-commands',
       tags: ['开发', '启动', '自定义'],
-      templateData: userTemplate.toConfig(),
+      templateData: {
+        name: 'npm',
+        category: 'my-custom-commands',
+        tags: ['开发', '启动', '自定义'],
+        subcommands: [
+          { name: 'run', description: '运行脚本' },
+          { name: 'start', description: '启动应用' }
+        ],
+        options: [
+          { name: 'port', longFlag: '--port', description: '指定端口号' }
+        ],
+        parameters: [
+          { 
+            name: 'project', 
+            commonValues: [
+              { value: 'my-app' },
+              { value: 'current' },
+              { value: 'webapp' }
+            ], 
+            defaultValueIndex: 1, 
+            required: false 
+          }
+        ],
+        commonCommands: [
+          { name: '启动开发服务器', command: 'npm run dev --port 3000', description: '在3000端口启动开发服务器' }
+        ]
+      },
       isUserCreated: true,
       isSystemExample: false,
       created: new Date(),
@@ -1773,9 +1853,6 @@ export const useCommandStore = defineStore('command', () => {
     saveToStorage,
     loadFromStorage,
     
-    // 简化命令模板方法
-    TemplateFactory,
-    CommandTemplate,
-    CommandBuilder
+    // 简化的命令模板数据结构（无需复杂构建器）
   }
 })

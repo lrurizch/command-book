@@ -1,31 +1,20 @@
 <template>
   <el-dialog
     v-model="dialogVisible"
-    :title="isEditing ? '修改命令' : '新建命令'"
+    :title="isEditing ? '修改命令模板' : '新建命令模板'"
     width="90%"
     :close-on-click-modal="false"
     @close="handleClose"
     class="command-add-modal"
   >
-    <!-- 模式选择 -->
-    <div class="mode-selector">
-      <el-radio-group v-model="buildMode" @change="onModeChange">
-        <el-radio-button value="simple">简单模式</el-radio-button>
-        <el-radio-button value="template">模板构建器</el-radio-button>
-      </el-radio-group>
+    <!-- 标题说明 -->
+    <div class="form-header">
+      <h3>创建命令模板</h3>
+      <p class="form-description">创建可重用的命令模板，包含命令名称、分类、标签和可选的子命令、选项、参数等。</p>
     </div>
 
-    <!-- 模板命令构建器 -->
-    <div v-if="buildMode === 'template'" class="template-builder-container">
-      <CommandBuilder
-        :initial-template="initialTemplate"
-        @template-created="onTemplateCreated"
-        @template-changed="onTemplateChanged"
-      />
-    </div>
-
-    <!-- 传统表单模式 -->
-    <div v-else class="command-form">
+    <!-- 命令模板表单 -->
+    <div class="command-form">
       <!-- 基本信息 -->
       <div class="form-section">
         <div class="form-group">
@@ -493,72 +482,161 @@
         </div>
       </div>
 
-      <!-- 常用选项参数 -->
+      <!-- 命令参数 -->
       <div class="form-section">
         <h3 class="section-title">
-          常用选项参数
-          <span v-if="isEditing && getFieldChanges().commonParameters" class="changed-indicator">已修改</span>
+          命令参数
+          <span v-if="isEditing && getFieldChanges().parameters" class="changed-indicator">已修改</span>
+          <el-tooltip content="配置命令的位置参数，如文件路径、目标地址等" placement="top">
+            <el-icon class="info-icon"><InfoFilled /></el-icon>
+          </el-tooltip>
         </h3>
-        <div class="common-params-container">
-          <div 
-            v-for="(paramSet, index) in form.commonParameters" 
-            :key="index" 
-            class="param-set-item"
-          >
-            <div class="param-set-form">
-              <el-input
-                v-model="paramSet.name"
-                placeholder="参数组合名称"
-                class="param-set-name"
-              />
-              <el-input
-                v-model="paramSet.params"
-                placeholder="参数组合 (如: -la, --verbose --output=json)"
-                class="param-set-params"
-              />
-              <el-input
-                v-model="paramSet.description"
-                placeholder="用途说明"
-                class="param-set-description"
-              />
+        <p class="section-description">添加命令执行时需要的位置参数</p>
+        
+        <!-- 参数列表 -->
+        <div class="parameters-container">
+          <div v-if="form.parameters.length === 0" class="empty-state">
+            <div class="parameters-actions">
               <el-button
-                type="danger"
+                type="primary"
                 text
-                @click="removeCommonParam(index)"
-                title="删除参数组合"
+                @click="addCustomParameter"
+                icon="Plus"
               >
-                ×
+                + 添加第一个参数
               </el-button>
             </div>
           </div>
-          <div class="common-params-actions">
-            <el-button
-              type="primary"
-              text
-              @click="addCommonParam"
-              icon="Plus"
+          
+          <div v-else class="parameters-list">
+            <div
+              v-for="(param, index) in form.parameters"
+              :key="index"
+              class="parameter-item"
             >
-              + 添加参数组合
-            </el-button>
-            <el-button
-              type="success"
-              text
-              @click="showCommonParamsModal(-1)"
-              icon="Collection"
-            >
-              从已有选项参数中选择
-            </el-button>
+              <div class="parameter-header">
+                <span class="parameter-index">{{ index + 1 }}</span>
+                <el-input
+                  v-model="param.name"
+                  placeholder="参数名称"
+                  class="parameter-name"
+                />
+                <el-button
+                  type="danger"
+                  text
+                  @click="removeParameter(index)"
+                  title="删除参数"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
+              
+                             <div class="parameter-body">
+                 <!-- 常用参数值列表 -->
+                 <div class="form-group">
+                   <label class="form-label">常用参数值</label>
+                   <div class="common-values-container">
+                     <div v-if="param.commonValues.length === 0" class="empty-values">
+                       <el-button
+                         type="primary"
+                         text
+                         @click="addCommonValue(index)"
+                         icon="Plus"
+                       >
+                         + 添加常用值
+                       </el-button>
+                     </div>
+                     
+                     <div v-else class="values-list">
+                       <div
+                         v-for="(value, valueIndex) in param.commonValues"
+                         :key="valueIndex"
+                         class="value-item"
+                       >
+                         <el-input
+                           v-model="value.value"
+                           placeholder="参数值"
+                           class="value-input"
+                         />
+                         <el-radio
+                           v-model="param.defaultValueIndex"
+                           :label="valueIndex"
+                           class="default-radio"
+                           title="设为默认值"
+                         >
+                           默认
+                         </el-radio>
+                         <el-button
+                           type="danger"
+                           text
+                           @click="removeCommonValue(index, valueIndex)"
+                           title="删除此值"
+                         >
+                           <el-icon><Delete /></el-icon>
+                         </el-button>
+                       </div>
+                       
+                       <!-- 无默认值选项 -->
+                       <div class="value-item no-default-item">
+                         <span class="no-default-label">无默认值</span>
+                         <el-radio
+                           v-model="param.defaultValueIndex"
+                           :label="-1"
+                           class="default-radio"
+                           title="不设置默认值"
+                         >
+                           选择
+                         </el-radio>
+                       </div>
+                       
+                       <div class="values-actions">
+                         <el-button
+                           type="primary"
+                           text
+                           @click="addCommonValue(index)"
+                           icon="Plus"
+                         >
+                           + 添加更多值
+                         </el-button>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+                 
+                 <div class="form-group">
+                   <label class="form-label">是否必带</label>
+                   <el-switch
+                     v-model="param.required"
+                     active-text="必带"
+                     inactive-text="可选"
+                     active-color="#409eff"
+                   />
+                 </div>
+               </div>
+            </div>
+            
+            <div class="parameters-actions">
+              <el-button
+                type="primary"
+                text
+                @click="addCustomParameter"
+                icon="Plus"
+              >
+                + 添加参数
+              </el-button>
+            </div>
           </div>
         </div>
-        <!-- 显示原始常用参数对比 -->
-        <div v-if="isEditing && getFieldChanges().commonParameters" class="comparison-info">
+        
+        <!-- 显示原始参数对比 -->
+        <div v-if="isEditing && getFieldChanges().parameters" class="comparison-info">
           <div class="original-value">
-            <span class="label">原始常用参数:</span>
-            <div class="original-common-params">{{ getOriginalCommonParamsDisplay() }}</div>
+            <span class="label">原始参数:</span>
+            <div class="original-parameters">{{ getOriginalParametersDisplay() }}</div>
             <el-button 
               type="text" 
               size="small" 
-              @click="restoreField('commonParameters')"
+              @click="restoreField('parameters')"
               class="restore-btn"
               title="恢复到原始值"
             >
@@ -717,144 +795,7 @@
 
 
 
-      <!-- 命令级参数设置 -->
-      <div v-if="detectedParameters.length > 0 || form.parameters.length > 0" class="form-section">
-        <h3 class="section-title">
-          命令级参数设置
-          <span v-if="isEditing && getFieldChanges().parameters" class="changed-indicator">已修改</span>
-        </h3>
-        <p class="section-description">配置直接跟在命令后的位置参数，如文件路径、目标地址等</p>
-        
-        <!-- 命令与参数间分隔符 -->
-        <div class="form-group">
-          <label class="form-label">命令与参数间分隔符</label>
-                    <el-input
-            v-model="form.commandParameterSeparator"
-            placeholder="不添加分隔符默认为空格"
-            maxlength="5"
-            class="command-parameter-separator-input"
-          />
-        </div>
-        
-        <div class="separator-hint">
-          <span class="hint-text">
-            设置命令与参数间的分隔符，默认为空格。可根据具体命令语法自定义（如等号=、冒号:等）。
-          </span>
-        </div>
-        
-        <div v-if="detectedParameters.length > 0" class="detected-params">
-          <div class="detected-params-header">
-            <span>检测到的参数:</span>
-            <el-button
-              type="primary"
-              size="small"
-              @click="addAllDetectedParams"
-            >
-              全部添加
-            </el-button>
-          </div>
-          <div class="detected-params-list">
-            <el-tag
-              v-for="param in detectedParameters"
-              :key="param"
-              class="detected-param"
-              @click="addParameter(param)"
-            >
-              + {{ param }}
-            </el-tag>
-          </div>
-        </div>
-        
-        <div class="parameters-list">
-          <el-card
-            v-for="(param, index) in form.parameters"
-            :key="index"
-            class="parameter-item"
-          >
-            <div class="parameter-header">
-              <el-input
-                v-model="param.name"
-                placeholder="参数"
-                class="param-name-input"
-              />
-              <el-button
-                type="danger"
-                size="small"
-                @click="removeParameter(index)"
-              >
-                删除
-              </el-button>
-            </div>
-            
-            <div class="parameter-body">
-              <div class="form-group">
-                <label class="form-label">描述</label>
-                <el-input
-                  v-model="param.description"
-                  placeholder="参数描述"
-                />
-              </div>
-              
-              <div class="form-row">
-                <div class="form-group">
-                  <label class="form-label">默认值</label>
-                  <el-input
-                    v-model="param.defaultValue"
-                    placeholder="默认值（可选）"
-                  />
-                </div>
-                
-                <div class="form-group">
-                  <label class="form-label">分隔符</label>
-                  <el-input
-                    v-model="param.separator"
-                    placeholder="不添加分隔符默认为空格"
-                    maxlength="5"
-                    class="param-separator-input"
-                  />
-                  <span class="form-help">命令与参数间的分隔符，默认为空格</span>
-                </div>
-              </div>
-              
-              <div class="form-row">
-                <div class="form-group">
-                  <el-checkbox 
-                    :model-value="defaultCommandParam === index"
-                    @change="(checked) => handleDefaultCommandParamChange(index, checked)"
-                    class="param-default-checkbox"
-                  >
-                    默认参数
-                  </el-checkbox>
-                </div>
-              </div>
-            </div>
-          </el-card>
-          
-          <el-button
-            class="add-param-btn"
-            @click="addCustomParameter"
-          >
-            + 添加命令级参数
-          </el-button>
-        </div>
-        
-        <!-- 显示原始参数对比 -->
-        <div v-if="isEditing && getFieldChanges().parameters" class="comparison-info">
-          <div class="original-value">
-            <span class="label">原始参数:</span>
-            <div class="original-parameters">{{ getOriginalParametersDisplay() }}</div>
-            <el-button 
-              type="text" 
-              size="small" 
-              @click="restoreField('parameters')"
-              class="restore-btn"
-              title="恢复到原始值"
-            >
-              ↺ 恢复
-            </el-button>
-          </div>
-        </div>
-      </div>
+      <!-- 旧的命令参数板块已删除 -->
     </div>
 
     <template #footer>
@@ -1253,11 +1194,10 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { InfoFilled, SuccessFilled, WarningFilled, Plus, FolderAdd, CircleCloseFilled } from '@element-plus/icons-vue'
+import { InfoFilled, SuccessFilled, WarningFilled, Plus, Delete, FolderAdd, CircleCloseFilled } from '@element-plus/icons-vue'
 import { useCommandStore } from '../stores/command'
 import { showSaveSuccess } from '../utils/toast'
-import CommandBuilder from './CommandBuilder.vue'
-import { CommandTemplate } from '../utils/commandBuilder.js'
+// 简化为直接创建命令模板，无需复杂构建器
 
 const props = defineProps({
   modelValue: {
@@ -1280,10 +1220,7 @@ const ParameterType = {
   OPTIONAL: 'optional'      // 可选参数  
 }
 
-// 构建模式
-const buildMode = ref('simple')
-const initialTemplate = ref(null)
-const templateCommand = ref(null)
+// 简化模式，直接创建命令模板
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -1466,7 +1403,7 @@ const form = ref({
   parameters: [],
   options: [], // 命令选项
   mutexGroups: [], // 互斥选项组
-  commonParameters: [], // 常用参数
+  // 已删除常用参数字段
   commonCommands: [], // 常用完整命令
   separators: [] // 分隔符/运算符
 })
@@ -1521,10 +1458,10 @@ const addAllDetectedParams = () => {
 
 const addCustomParameter = () => {
   form.value.parameters.push({
-    name: '',
-    description: '',
-    defaultValue: '',
-    separator: ' '  // 默认为空格
+    name: '',               // 参数名称
+    commonValues: [],       // 常用参数值数组
+    defaultValueIndex: -1,  // 默认值索引（-1表示无默认值）
+    required: false         // 是否必带（默认为可选）
   })
 }
 
@@ -1541,13 +1478,46 @@ const removeParameter = (index) => {
   analyzeCommand() // 重新分析以更新检测到的参数
 }
 
+// 添加常用参数值
+const addCommonValue = (paramIndex) => {
+  if (!form.value.parameters[paramIndex].commonValues) {
+    form.value.parameters[paramIndex].commonValues = []
+  }
+  
+  form.value.parameters[paramIndex].commonValues.push({
+    value: ''
+  })
+  
+  // 不自动设置默认值，保持用户的选择
+}
+
+// 删除常用参数值
+const removeCommonValue = (paramIndex, valueIndex) => {
+  const param = form.value.parameters[paramIndex]
+  param.commonValues.splice(valueIndex, 1)
+  
+  // 调整默认值索引
+  if (param.defaultValueIndex === valueIndex) {
+    // 如果删除的是默认值，设置为无默认值
+    param.defaultValueIndex = -1
+  } else if (param.defaultValueIndex > valueIndex) {
+    // 如果删除的值在默认值之前，调整索引
+    param.defaultValueIndex--
+  }
+  
+  // 如果没有值了，设置为无默认值
+  if (param.commonValues.length === 0) {
+    param.defaultValueIndex = -1
+  }
+}
+
 // 自动生成命令名称
 const generateCommandName = (command) => {
-  if (!command.trim()) return '新建命令'
+  if (!command.trim()) return '新建命令模板'
   
   // 提取命令的主要部分作为名称
   const parts = command.trim().split(' ')
-  if (parts.length === 0) return '新建命令'
+  if (parts.length === 0) return '新建命令模板'
   
   // 处理常见命令格式
   const mainCommand = parts[0]
@@ -1608,7 +1578,7 @@ const resetForm = () => {
     tags: [],
     parameters: [],
     options: [],
-    commonParameters: [],
+    // commonParameters已删除
     commonCommands: [],
     separators: [],
     commandParameterSeparator: ' '  // 命令与参数间分隔符，默认空格
@@ -1616,58 +1586,7 @@ const resetForm = () => {
   detectedParameters.value = []
 }
 
-// 新增方法：处理模式切换
-const onModeChange = () => {
-  if (buildMode.value === 'template') {
-    // 切换到模板构建器时，从当前表单数据创建初始模板
-    createInitialTemplate()
-  }
-}
-
-const createInitialTemplate = () => {
-  if (form.value) {
-    const template = new CommandTemplate({
-      name: form.value.mainCommand || '',
-      category: form.value.category || 'custom',
-      tags: form.value.tags || []
-    })
-    
-    // 添加已有的子命令
-    if (form.value.subcommands) {
-      form.value.subcommands.forEach(sub => {
-        template.addSubcommand({
-          name: sub.name,
-          description: sub.description || ''
-        })
-      })
-    }
-    
-    // 添加已有的选项
-    if (form.value.options) {
-      form.value.options.forEach(opt => {
-        template.addOption({
-          name: opt.name,
-          shortFlag: opt.shortFlag || '',
-          longFlag: opt.longFlag || '',
-          description: opt.description || ''
-        })
-      })
-    }
-    
-    initialTemplate.value = template.toConfig()
-  }
-}
-
-// 模板相关的事件处理
-const onTemplateCreated = (templateData) => {
-  templateCommand.value = templateData
-  console.log('模板创建成功:', templateData)
-}
-
-const onTemplateChanged = (templateData) => {
-  templateCommand.value = templateData
-  console.log('模板已更改:', templateData)
-}
+// 已删除复杂的模板构建器，简化为直接创建命令模板
 
 // 已移除旧的通用构建器相关函数，使用新的模板构建器
 
@@ -1677,36 +1596,44 @@ const handleClose = () => {
 }
 
 const saveCommand = async () => {
-  // 模板构建器模式
-  if (buildMode.value === 'template' && templateCommand.value) {
-    try {
-      const commandData = {
-        id: isEditing.value ? props.editingCommand.id : undefined,
-        name: templateCommand.value.name,
-        description: `${templateCommand.value.name} 命令模板`,
-        category: templateCommand.value.category,
-        tags: templateCommand.value.tags,
-        templateData: templateCommand.value,
-        isUserCreated: true,
-        isSystemExample: false,
-        created: isEditing.value ? props.editingCommand.created : new Date(),
-        updated: new Date()
-      }
-      
-      if (isEditing.value) {
-        commandStore.updateCommand(props.editingCommand.id, commandData)
-        showSaveSuccess(commandData.name, true)
-      } else {
-        commandStore.addCommand(commandData)
-        showSaveSuccess(commandData.name, false)
-      }
-      
-      emit('saved')
-      return commandData
-    } catch (error) {
-      ElMessage.error(error.message)
-      throw error
+  // 创建命令模板数据
+  const templateData = {
+    name: form.value.mainCommand.trim(),
+    category: form.value.category || 'custom',
+    tags: form.value.tags || [],
+    subcommands: form.value.subcommands || [],
+    options: form.value.options || [],
+    parameters: form.value.parameters || [],
+    commonCommands: form.value.commonCommands || []
+  }
+  
+  try {
+    const commandData = {
+      id: isEditing.value ? props.editingCommand.id : undefined,
+      name: form.value.commandName.trim(),
+      description: form.value.description || `${form.value.commandName.trim()} 命令模板`,
+      category: form.value.category,
+      tags: form.value.tags,
+      templateData: templateData,
+      isUserCreated: true,
+      isSystemExample: false,
+      created: isEditing.value ? props.editingCommand.created : new Date(),
+      updated: new Date()
     }
+    
+    if (isEditing.value) {
+      commandStore.updateCommand(props.editingCommand.id, commandData)
+      showSaveSuccess(commandData.name, true)
+    } else {
+      commandStore.addCommand(commandData)
+      showSaveSuccess(commandData.name, false)
+    }
+    
+    emit('saved')
+    return commandData
+  } catch (error) {
+    ElMessage.error(error.message)
+    throw error
   }
 
   // 传统模式
@@ -1730,7 +1657,7 @@ const saveCommand = async () => {
       isDefault: defaultCommandParam.value === index
     })), // 过滤空参数并设置默认参数
     options: form.value.options.filter(o => o.shortName.trim() || o.longName.trim()), // 过滤空选项
-    commonParameters: form.value.commonParameters.filter(p => p.name.trim()), // 过滤空常用参数
+    // commonParameters已删除
     commonCommands: form.value.commonCommands.filter(c => c.name.trim()), // 过滤空常用命令
     separators: form.value.separators.filter(s => s.symbol.trim()) // 过滤空分隔符
   }
@@ -1753,29 +1680,13 @@ const saveCommand = async () => {
 }
 
 const validateForm = () => {
-  // 模板构建器模式的验证
-  if (buildMode.value === 'template') {
-    if (!templateCommand.value) {
-      ElMessage.warning('请先构建模板')
-      return false
-    }
-    
-    // 检查模板是否有效
-    if (!templateCommand.value.name || !templateCommand.value.name.trim()) {
-      ElMessage.warning('请输入模板名称')
-      return false
-    }
-    
-    return true
-  }
-  
-  // 传统模式的验证
-  if (!form.value.mainCommand.trim()) {
-    ElMessage.warning('请输入主命令')
+  // 命令模板的验证
+  if (!form.value.commandName.trim()) {
+    ElMessage.warning('请输入命令模板名称')
     return false
   }
-  if (!form.value.command.trim()) {
-    ElMessage.warning('请输入命令')
+  if (!form.value.mainCommand.trim()) {
+    ElMessage.warning('请输入主命令')
     return false
   }
   return true
@@ -1925,7 +1836,7 @@ const hasChanges = computed(() => {
     JSON.stringify(original.tags) !== JSON.stringify(current.tags) ||
     JSON.stringify(original.parameters) !== JSON.stringify(current.parameters) ||
     JSON.stringify(original.options) !== JSON.stringify(current.options) ||
-    JSON.stringify(original.commonParameters) !== JSON.stringify(current.commonParameters) ||
+    // commonParameters已删除
     JSON.stringify(original.commonCommands) !== JSON.stringify(current.commonCommands) ||
     JSON.stringify(original.separators) !== JSON.stringify(current.separators)
   )
@@ -1949,7 +1860,7 @@ const getFieldChanges = () => {
     tags: JSON.stringify(original.tags) !== JSON.stringify(current.tags),
     parameters: JSON.stringify(original.parameters) !== JSON.stringify(current.parameters),
     options: JSON.stringify(original.options) !== JSON.stringify(current.options),
-    commonParameters: JSON.stringify(original.commonParameters) !== JSON.stringify(current.commonParameters),
+    // commonParameters已删除
     commonCommands: JSON.stringify(original.commonCommands) !== JSON.stringify(current.commonCommands),
     separators: JSON.stringify(original.separators) !== JSON.stringify(current.separators)
   }
@@ -2028,10 +1939,7 @@ const restoreField = (fieldName) => {
       form.value.options = originalData.value.options ? 
         originalData.value.options.map(option => ({ ...option })) : []
       break
-    case 'commonParameters':
-      form.value.commonParameters = originalData.value.commonParameters ? 
-        originalData.value.commonParameters.map(param => ({ ...param })) : []
-      break
+    // commonParameters case已删除
     case 'commonCommands':
       form.value.commonCommands = originalData.value.commonCommands ? 
         originalData.value.commonCommands.map(cmd => ({ ...cmd })) : []
@@ -2059,7 +1967,7 @@ const getFieldDisplayName = (fieldName) => {
     tags: '标签',
     parameters: '参数设置',
     options: '命令选项',
-    commonParameters: '常用参数',
+    // commonParameters已删除
     commonCommands: '常用命令',
     separators: '分隔符/运算符'
   }
@@ -2109,14 +2017,7 @@ const getOriginalOptionsDisplay = () => {
   }).join('\n')
 }
 
-// 获取原始常用参数显示
-const getOriginalCommonParamsDisplay = () => {
-  if (!originalData.value || !originalData.value.commonParameters || originalData.value.commonParameters.length === 0) return '无常用参数'
-  
-  return originalData.value.commonParameters.map(param => {
-    return `${param.name}: ${param.params} - ${param.description || '无说明'}`
-  }).join('\n')
-}
+// getOriginalCommonParamsDisplay函数已删除
 
 // 获取原始常用命令显示
 const getOriginalCommonCommandsDisplay = () => {
@@ -2441,136 +2342,11 @@ const addMutexOptionPair = () => {
   showMutexPairingDialog()
 }
 
-// 常用参数模板
-const commonParamTemplates = [
-  // 文件路径相关
-  { name: 'file', description: '文件路径', category: '文件' },
-  { name: 'input', description: '输入文件', category: '文件' },
-  { name: 'output', description: '输出文件', category: '文件' },
-  { name: 'config', description: '配置文件', category: '文件' },
-  { name: 'log', description: '日志文件', category: '文件' },
-  
-  // 网络相关
-  { name: 'url', description: '网址链接', category: '网络' },
-  { name: 'host', description: '主机地址', category: '网络' },
-  { name: 'port', description: '端口号', category: '网络' },
-  { name: 'timeout', description: '超时时间(秒)', category: '网络' },
-  
-  // 通用配置
-  { name: 'name', description: '名称', category: '通用' },
-  { name: 'id', description: '标识符', category: '通用' },
-  { name: 'type', description: '类型', category: '通用' },
-  { name: 'format', description: '格式', category: '通用' },
-  { name: 'encoding', description: '编码格式', category: '通用' },
-  
-  // 数量和范围
-  { name: 'count', description: '数量', category: '数量' },
-  { name: 'limit', description: '限制数量', category: '数量' },
-  { name: 'size', description: '大小', category: '数量' },
-  { name: 'max', description: '最大值', category: '数量' },
-  { name: 'min', description: '最小值', category: '数量' },
-]
+// 常用参数相关代码已删除
 
-// 已有选项参数对话框
-const showCommonParamsDialog = ref(false)
-const currentOptionIndex = ref(-1)
-const selectedCommonParams = ref([])
+// showCommonParamsModal函数已删除
 
-// 显示已有选项参数选择对话框
-const showCommonParamsModal = (optionIndex = -1) => {
-  const existingData = getExistingOptionsAndParams.value
-  const hasData = existingData['选项'].length > 0 || existingData['命令级参数'].length > 0
-  
-  if (!hasData) {
-    ElMessage.warning('当前命令还没有添加任何选项或参数')
-    return
-  }
-  
-  currentOptionIndex.value = optionIndex
-  selectedCommonParams.value = []
-  showCommonParamsDialog.value = true
-}
-
-// 确认添加常用选项参数
-const confirmAddCommonParams = () => {
-  if (selectedCommonParams.value.length === 0) {
-    ElMessage.warning('请选择要添加的选项或参数')
-    return
-  }
-  
-  const existingOptionsAndParams = getExistingOptionsAndParams.value
-  
-  if (currentOptionIndex.value === -1) {
-    // 命令级别：创建常用参数组合
-    const selectedItems = []
-    
-    selectedCommonParams.value.forEach(selectedKey => {
-      const [category, paramIndex] = selectedKey.split('-')
-      const item = existingOptionsAndParams[category][parseInt(paramIndex)]
-      selectedItems.push(item.name)
-    })
-    
-    // 创建参数组合字符串
-    const paramsCombination = selectedItems.join(' ')
-    
-    // 添加到命令的常用参数组合
-    form.value.commonParameters.push({
-      name: `组合${form.value.commonParameters.length + 1}`,
-      params: paramsCombination,
-      description: `由已有选项参数组合而成：${selectedItems.join(', ')}`
-    })
-    
-    showCommonParamsDialog.value = false
-    ElMessage.success(`已创建常用参数组合：${paramsCombination}`)
-  } else {
-    // 选项级别：添加到选项的参数中
-    let targetOption
-    if (currentOptionIndex.value === -1) {
-      targetOption = newOptionForm.value
-    } else {
-      targetOption = form.value.options[currentOptionIndex.value]
-    }
-    
-    if (!targetOption.parameters) {
-      targetOption.parameters = []
-    }
-    
-    let addedCount = 0
-    
-    selectedCommonParams.value.forEach(selectedKey => {
-      const [category, paramIndex] = selectedKey.split('-')
-      const item = existingOptionsAndParams[category][parseInt(paramIndex)]
-      
-      if (item.type === 'option') {
-        targetOption.parameters.push({
-          name: item.name,
-          description: `复制的选项: ${item.description}`,
-          type: item.paramType || ParameterType.OPTIONAL
-        })
-        addedCount++
-      } else if (item.type === 'option-param') {
-        targetOption.parameters.push({
-          name: item.data.name,
-          description: item.data.description || item.description,
-          type: item.paramType || ParameterType.OPTIONAL,
-          defaultValue: item.data.defaultValue
-        })
-        addedCount++
-      } else if (item.type === 'command-param') {
-        targetOption.parameters.push({
-          name: item.data.name,
-          description: item.data.description || item.description,
-          type: item.paramType || ParameterType.OPTIONAL,
-          defaultValue: item.data.defaultValue
-        })
-        addedCount++
-      }
-    })
-    
-    showCommonParamsDialog.value = false
-    ElMessage.success(`已添加 ${addedCount} 个选项/参数`)
-  }
-}
+// confirmAddCommonParams函数已删除
 
 // 获取已添加的选项和参数
 const getExistingOptionsAndParams = computed(() => {
@@ -2740,21 +2516,7 @@ const removeSubcommand = (index) => {
   form.value.subcommands.splice(index, 1)
 }
 
-// 常用参数管理
-const addCommonParam = () => {
-  if (!form.value.commonParameters) {
-    form.value.commonParameters = []
-  }
-  form.value.commonParameters.push({
-    name: '',
-    params: '',
-    description: ''
-  })
-}
-
-const removeCommonParam = (index) => {
-  form.value.commonParameters.splice(index, 1)
-}
+// 常用参数管理函数已删除
 
 // 常用命令管理
 const addCommonCommand = () => {
@@ -2836,7 +2598,7 @@ watch(() => props.editingCommand, (newCommand) => {
       tags: [...(newCommand.tags || [])],
       parameters: newCommand.parameters ? [...newCommand.parameters] : [],
       options: newCommand.options ? [...newCommand.options] : [],
-      commonParameters: newCommand.commonParameters ? [...newCommand.commonParameters] : [],
+      // commonParameters已删除
       commonCommands: newCommand.commonCommands ? [...newCommand.commonCommands] : [],
       separators: newCommand.separators ? [...newCommand.separators] : [],
       commandParameterSeparator: newCommand.commandParameterSeparator || ' '  // 确保有默认值
@@ -3879,19 +3641,151 @@ watch(() => props.editingCommand, (newCommand) => {
   }
   
   .empty-state {
-    text-align: center;
-    padding: var(--el-spacing-xl);
-    color: var(--el-text-color-secondary);
-    
-    p {
-      margin: var(--el-spacing-sm) 0;
-      font-size: var(--el-font-size-base);
-    }
-    
-    .hint {
-      font-size: var(--el-font-size-small);
-      color: var(--el-text-color-placeholder);
-    }
+    padding: var(--el-spacing-md) 0;
   }
+  
+  /* 命令参数样式 */
+  .parameters-container {
+    .parameters-actions {
+      display: flex;
+      gap: var(--el-spacing-sm);
+      align-items: center;
+    }
+    
+    .parameters-list {
+      .parameter-item {
+        border: 1px solid var(--el-border-color-light);
+        border-radius: var(--el-border-radius-base);
+        margin-bottom: var(--el-spacing-md);
+        background: var(--el-bg-color-page);
+        transition: all 0.2s ease;
+        
+        &:hover {
+          border-color: var(--el-border-color);
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+        }
+        
+        .parameter-header {
+          display: flex;
+          align-items: center;
+          gap: var(--el-spacing-sm);
+          padding: var(--el-spacing-md);
+          background: var(--el-fill-color-lighter);
+          border-bottom: 1px solid var(--el-border-color-lighter);
+          
+          .parameter-index {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--el-color-primary);
+            color: white;
+            border-radius: 50%;
+            font-size: var(--el-font-size-small);
+            font-weight: 500;
+            flex-shrink: 0;
+          }
+          
+          .parameter-name {
+            flex: 1;
+          }
+        }
+        
+        .parameter-body {
+          padding: var(--el-spacing-md);
+          
+          .form-row {
+            display: flex;
+            gap: var(--el-spacing-md);
+            margin-bottom: var(--el-spacing-md);
+            
+            .form-group {
+              flex: 1;
+            }
+          }
+          
+          .form-group {
+            margin-bottom: var(--el-spacing-md);
+            
+            &:last-child {
+              margin-bottom: 0;
+            }
+          }
+        }
+      }
+    }
+     
+     /* 常用参数值样式 */
+     .common-values-container {
+       .empty-values {
+         text-align: center;
+         padding: var(--el-spacing-lg);
+         border: 2px dashed var(--el-border-color-light);
+         border-radius: var(--el-border-radius-base);
+         color: var(--el-text-color-secondary);
+       }
+       
+       .values-list {
+                   .value-item {
+            display: flex;
+            align-items: center;
+            gap: var(--el-spacing-sm);
+            margin-bottom: var(--el-spacing-sm);
+            padding: var(--el-spacing-sm);
+            border: 1px solid var(--el-border-color-lighter);
+            border-radius: var(--el-border-radius-base);
+            background: var(--el-fill-color-extra-light);
+            
+            &:hover {
+              border-color: var(--el-border-color);
+            }
+            
+            .value-input {
+              flex: 1;
+            }
+            
+            .default-radio {
+              flex-shrink: 0;
+              
+              :deep(.el-radio__label) {
+                font-size: var(--el-font-size-small);
+                color: var(--el-text-color-regular);
+              }
+              
+              &.is-checked {
+                :deep(.el-radio__label) {
+                  color: var(--el-color-primary);
+                  font-weight: 500;
+                }
+              }
+            }
+            
+            &.no-default-item {
+              background: var(--el-fill-color-blank);
+              border-style: dashed;
+              border-color: var(--el-border-color);
+              
+              .no-default-label {
+                flex: 1;
+                color: var(--el-text-color-secondary);
+                font-style: italic;
+              }
+              
+              &:hover {
+                background: var(--el-fill-color-light);
+              }
+            }
+          }
+         
+         .values-actions {
+           text-align: center;
+           padding: var(--el-spacing-sm) 0;
+           border-top: 1px solid var(--el-border-color-lighter);
+           margin-top: var(--el-spacing-sm);
+         }
+       }
+     }
+   }
 }
 </style> 

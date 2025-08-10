@@ -7,7 +7,7 @@
           ← 返回
         </button>
         <h1 class="page-title">
-          {{ isEditing ? '编辑命令' : '新建命令' }}
+          {{ isEditing ? '编辑命令模板' : '新建命令模板' }}
         </h1>
       </div>
       <div class="header-right">
@@ -386,11 +386,11 @@ const addSuggestedTag = (tag) => {
 
 // 自动生成命令名称
 const generateCommandName = (command) => {
-  if (!command.trim()) return '新建命令'
+  if (!command.trim()) return '新建命令模板'
   
   // 提取命令的主要部分作为名称
   const parts = command.trim().split(' ')
-  if (parts.length === 0) return '新建命令'
+  if (parts.length === 0) return '新建命令模板'
   
   // 处理常见命令格式
   const mainCommand = parts[0]

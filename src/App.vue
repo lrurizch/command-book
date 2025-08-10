@@ -73,7 +73,7 @@ const handleFocusSearch = () => {
 }
 
 const handleNewCommand = () => {
-  // 触发新建命令
+        // 触发新建命令模板
   window.dispatchEvent(new CustomEvent('show-command-modal'))
 }
 

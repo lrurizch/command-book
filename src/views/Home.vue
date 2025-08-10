@@ -44,7 +44,7 @@
       <div class="action-buttons">
         <el-button type="success" @click="handleAddClick">
           <el-icon><Plus /></el-icon>
-          {{ showAddModal ? '取消新建' : '新建命令' }}
+          {{ showAddModal ? '取消新建' : '新建命令模板' }}
         </el-button>
         <el-button type="primary" @click="handleBatchClick">
           <el-icon><DocumentAdd /></el-icon>
@@ -162,7 +162,7 @@
           <div class="empty-actions">
             <el-button type="primary" @click="handleAddClick">
               <el-icon><Plus /></el-icon>
-              新建命令
+              新建命令模板
             </el-button>
             <el-button v-if="searchQuery || selectedTags.length > 0" @click="clearFilters">
               <el-icon><RefreshLeft /></el-icon>

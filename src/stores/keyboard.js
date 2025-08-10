@@ -285,7 +285,7 @@ export const useKeyboardStore = defineStore('keyboard', () => {
   const getShortcutHelp = () => {
     return {
       '全局快捷键': {
-        'Ctrl+N': '新建命令',
+        'Ctrl+N': '新建命令模板',
         'Ctrl+Shift+N': '新建工作流',
         'Ctrl+F': '聚焦搜索框',
         'Ctrl+,': '打开设置',
