@@ -377,6 +377,11 @@ const deleteTarget = ref(null)
 const editingCommand = ref(null)
 const commonCommandsCommand = ref(null)
 
+// 监听变量（用于检测变化）
+let lastCategory = null
+let lastQuery = null
+let lastTagsStr = null
+
 // 模态框状态
 const showParameterModal = ref(false)
 const showDeleteModal = ref(false)

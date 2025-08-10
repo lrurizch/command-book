@@ -921,12 +921,15 @@
         <!-- 命令与选项间分隔符 -->
         <div class="form-group">
           <label class="form-label">命令与选项间分隔符</label>
-          <el-input
-            v-model="newOptionForm.commandSeparator"
-            placeholder="不添加分隔符默认为空格"
-            maxlength="5"
-            class="command-separator-input"
-          />
+          <div class="separator-input-wrapper">
+            <el-input
+              v-model="newOptionForm.commandSeparator"
+              placeholder="分隔符"
+              maxlength="5"
+              class="command-separator-input"
+            />
+            <span class="separator-hint-inline">默认空格，可用 =、: 等</span>
+          </div>
         </div>
         
         <div class="form-row">
@@ -1003,12 +1006,15 @@
         <!-- 选项与参数间分隔符 -->
         <div class="form-group">
           <label class="form-label">选项与参数间分隔符</label>
-          <el-input
-            v-model="newOptionForm.optionSeparator"
-            placeholder="不添加分隔符默认为空格"
-            maxlength="5"
-            class="option-separator-input"
-          />
+          <div class="separator-input-wrapper">
+            <el-input
+              v-model="newOptionForm.optionSeparator"
+              placeholder="分隔符"
+              maxlength="5"
+              class="option-separator-input"
+            />
+            <span class="separator-hint-inline">默认空格，可用 =、: 等</span>
+          </div>
         </div>
         
         <div class="separator-hint">
@@ -3317,6 +3323,14 @@ watch(() => props.editingCommand, (newCommand) => {
     }
   }
   
+  .form-help {
+    display: block;
+    margin-top: var(--el-spacing-xs);
+    font-size: var(--el-font-size-small);
+    color: var(--el-text-color-secondary);
+    line-height: 1.4;
+  }
+  
   .param-default-checkbox {
     margin-top: var(--el-spacing-xs);
     
@@ -3330,10 +3344,23 @@ watch(() => props.editingCommand, (newCommand) => {
     max-width: 100px;
   }
   
+  .separator-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--el-spacing-sm);
+    
+    .separator-hint-inline {
+      font-size: var(--el-font-size-small);
+      color: var(--el-text-color-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+  }
+  
   .command-separator-input,
   .option-separator-input,
   .command-parameter-separator-input {
-    max-width: 120px;
+    flex: 0 0 120px;
   }
   
   .param-tag {
