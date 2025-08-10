@@ -16,7 +16,7 @@
     <!-- 命令模板表单 -->
     <div class="command-form">
       <!-- 基本信息 -->
-      <div class="form-section">
+      <div class="form-section basic-info-section">
         <div class="form-group">
           <label for="command-name" class="form-label">
             命令名称 <span class="required">*</span>
@@ -56,9 +56,6 @@
               <el-icon class="info-icon"><InfoFilled /></el-icon>
             </el-tooltip>
           </h3>
-          <div class="section-description">
-            添加基于上面命令模板的具体实例，这些是可以直接执行的完整命令。
-          </div>
           <div class="common-commands-container">
             <div 
               v-for="(cmdExample, index) in form.commonCommands" 
@@ -458,7 +455,7 @@
       </div>
 
       <!-- 命令参数 -->
-      <div class="form-section">
+      <div class="form-section parameters-section">
         <h3 class="section-title">
           命令参数
           <span v-if="isEditing && getFieldChanges().parameters" class="changed-indicator">已修改</span>
@@ -466,21 +463,18 @@
             <el-icon class="info-icon"><InfoFilled /></el-icon>
           </el-tooltip>
         </h3>
-        <p class="section-description">添加命令执行时需要的位置参数</p>
         
         <!-- 参数列表 -->
         <div class="parameters-container">
-          <div v-if="form.parameters.length === 0" class="empty-state">
-            <div class="parameters-actions">
-              <el-button
-                type="primary"
-                text
-                @click="addCustomParameter"
-                icon="Plus"
-              >
-                + 添加第一个参数
-              </el-button>
-            </div>
+          <div v-if="form.parameters.length === 0" class="parameters-actions">
+            <el-button
+              type="primary"
+              text
+              @click="addCustomParameter"
+              icon="Plus"
+            >
+              + 添加参数
+            </el-button>
           </div>
           
           <div v-else class="parameters-list">
@@ -630,82 +624,74 @@
           <span v-if="isEditing && getFieldChanges().symbols" class="changed-indicator">已修改</span>
         </h3>
                 <div class="symbols-container">
-          <!-- 符号分类选择 -->
-          <div class="symbol-categories">
-            <div 
-              v-for="category in symbolCategories" 
-              :key="category.value"
-              class="category-section"
-            >
-              <div class="category-header">
-                <h4>{{ category.label }}</h4>
-                <span class="category-desc">{{ category.description }}</span>
-              </div>
-              
-              <!-- 该分类下的符号列表 -->
-              <div class="symbols-grid">
-                <div
-                  v-for="symbolOption in getSymbolsByCategory(category.value)"
-                  :key="symbolOption.symbol"
-                  class="symbol-card"
-                  :class="{ 'selected': isSymbolSelected(symbolOption) }"
-                  @click="toggleSymbol(symbolOption, category.value)"
+          <!-- 符号选择区域 -->
+          <div class="symbol-selection-area">
+            <div class="selector-row">
+              <div 
+                v-for="category in symbolCategories" 
+                :key="category.value"
+                class="category-selector-item"
+              >
+                <label class="category-label">{{ category.label }}</label>
+                <el-select
+                  :model-value="getSelectedSymbolsForCategory(category.value)"
+                  @update:model-value="updateCategorySymbols(category.value, $event)"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  :max-collapse-tags="1"
+                  :placeholder="`选择${category.label}`"
+                  class="symbol-select"
+                  clearable
+                  filterable
+                  size="small"
                 >
-                  <div class="symbol-content">
-                    <span class="symbol-text">{{ symbolOption.symbol }}</span>
-                    <span class="symbol-name">{{ symbolOption.name }}</span>
-                  </div>
-                  <div class="symbol-description">{{ symbolOption.description }}</div>
-                  <div v-if="isSymbolSelected(symbolOption)" class="selected-indicator">
-                    <el-icon><Check /></el-icon>
-                  </div>
-                </div>
+                  <el-option
+                    v-for="symbolOption in getSymbolsByCategory(category.value)"
+                    :key="symbolOption.symbol"
+                    :value="symbolOption.symbol"
+                    :label="symbolOption.symbol"
+                  >
+                    <div 
+                      class="symbol-option-only"
+                      :title="`${symbolOption.name}: ${symbolOption.description}`"
+                    >
+                      <span class="symbol-char">{{ symbolOption.symbol }}</span>
+                    </div>
+                  </el-option>
+                </el-select>
               </div>
             </div>
           </div>
           
-          <!-- 已选择的符号列表 -->
-          <div v-if="form.symbols.length > 0" class="selected-symbols">
-            <h4>已选择的符号 ({{ form.symbols.length }})</h4>
-            <div class="selected-symbols-list">
-              <div
+          <!-- 已选择符号展示 -->
+          <div v-if="form.symbols.length > 0" class="selected-symbols-area">
+            <div class="selected-symbols-header">
+              <span class="symbols-count">已选择 {{ form.symbols.length }} 个符号</span>
+              <el-button 
+                type="text" 
+                size="small" 
+                @click="form.symbols = []"
+                title="清空所有符号"
+              >
+                清空
+              </el-button>
+            </div>
+            <div class="selected-symbols-tags">
+              <el-tag
                 v-for="(symbol, index) in form.symbols"
                 :key="`${symbol.category}-${symbol.symbol}`"
-                class="selected-symbol-item"
+                closable
+                @close="removeSymbolByIndex(index)"
+                size="small"
+                type="primary"
+                class="symbol-tag"
               >
-                <div class="symbol-info">
-                  <span class="symbol-text">{{ symbol.symbol }}</span>
-                  <span class="symbol-name">{{ symbol.name }}</span>
-                  <span class="category-badge">{{ getCategoryLabel(symbol.category) }}</span>
-                </div>
-                <div class="symbol-description">{{ symbol.description }}</div>
-                <el-button
-                  type="danger"
-                  text
-                  @click="removeSymbolByIndex(index)"
-                  title="移除符号"
-                  class="remove-btn"
-                >
-                  ×
-                </el-button>
-              </div>
+                {{ symbol.symbol }}
+              </el-tag>
             </div>
           </div>
-          
-          <!-- 空状态 -->
-          <div v-if="form.symbols.length === 0" class="empty-state">
-            <el-empty description="请从上方符号库中选择需要的符号" :image-size="60" />
-          </div>
-        </div>
-        
-        <!-- 符号分类说明 -->
-        <div class="symbol-help">
-          <div class="help-item">
-            💡 提示: 符号按功能分类，方便选择合适的符号组合命令
-          </div>
-          <div class="help-item">
-            📝 分类: <code>管道</code>、<code>重定向</code>、<code>逻辑</code>、<code>后台</code>、<code>分组</code>、<code>通配符</code>
-          </div>
+
         </div>
         
         <!-- 显示原始符号对比 -->
@@ -1124,7 +1110,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { InfoFilled, SuccessFilled, WarningFilled, Plus, Delete, FolderAdd, CircleCloseFilled, Check } from '@element-plus/icons-vue'
+import { InfoFilled, SuccessFilled, WarningFilled, Plus, Delete, FolderAdd, CircleCloseFilled, Check, ArrowDown, ArrowRight, Search } from '@element-plus/icons-vue'
 import { useCommandStore } from '../stores/command'
 import { showSaveSuccess } from '../utils/toast'
 // 简化为直接创建命令模板，无需复杂构建器
@@ -1320,6 +1306,8 @@ const categoryStatus = computed(() => {
   }
 })
 
+// 符号选择器相关状态（保留以防其他地方使用）
+
 // 符号分类数据
 const symbolCategories = ref([
   {
@@ -1358,6 +1346,8 @@ const symbolCategories = ref([
     description: '参数分隔'
   }
 ])
+
+
 
 // 各分类下的具体符号
 const symbolsByCategory = ref({
@@ -2626,6 +2616,38 @@ const getCategoryLabel = (categoryValue) => {
   return category ? category.label : categoryValue
 }
 
+// 获取某分类下已选择的符号
+const getSelectedSymbolsForCategory = (categoryValue) => {
+  if (!form.value.symbols) return []
+  return form.value.symbols
+    .filter(symbol => symbol.category === categoryValue)
+    .map(symbol => symbol.symbol)
+}
+
+// 更新某分类下的符号选择
+const updateCategorySymbols = (categoryValue, selectedSymbols) => {
+  if (!form.value.symbols) {
+    form.value.symbols = []
+  }
+  
+  // 移除该分类下所有符号
+  form.value.symbols = form.value.symbols.filter(symbol => symbol.category !== categoryValue)
+  
+  // 添加新选择的符号
+  const categorySymbols = getSymbolsByCategory(categoryValue)
+  selectedSymbols.forEach(symbolChar => {
+    const symbolOption = categorySymbols.find(s => s.symbol === symbolChar)
+    if (symbolOption) {
+      form.value.symbols.push({
+        category: categoryValue,
+        symbol: symbolOption.symbol,
+        name: symbolOption.name,
+        description: symbolOption.description
+      })
+    }
+  })
+}
+
 // 获取原始符号显示
 const getOriginalSymbolsDisplay = () => {
   if (!originalData.value || !originalData.value.symbols || originalData.value.symbols.length === 0) {
@@ -3680,6 +3702,32 @@ watch(() => props.editingCommand, (newCommand) => {
     padding: var(--el-spacing-md) 0;
   }
   
+  /* 基本信息区域样式 */
+  .basic-info-section {
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: var(--el-border-radius-base);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    
+    &:hover {
+      border-color: var(--el-border-color-light);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  /* 命令参数区域样式 */
+  .parameters-section {
+    background: var(--el-bg-color);
+    border: 1px solid var(--el-border-color-lighter);
+    border-radius: var(--el-border-radius-base);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    
+    &:hover {
+      border-color: var(--el-border-color-light);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+    }
+  }
+
   /* 命令参数样式 */
   .parameters-container {
     .parameters-actions {
@@ -3827,32 +3875,194 @@ watch(() => props.editingCommand, (newCommand) => {
 
 // 符号样式
 .symbols-container {
-  .symbol-categories {
-    .category-section {
-      margin-bottom: var(--el-spacing-xl);
+  /* 符号选择区域 */
+  .symbol-selection-area {
+    margin-bottom: 16px;
+    
+    .selection-header {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
       
-      .category-header {
-        display: flex;
-        align-items: center;
-        gap: var(--el-spacing-md);
-        margin-bottom: var(--el-spacing-lg);
-        padding: var(--el-spacing-md);
-        background: var(--el-color-primary-light-9);
-        border-radius: var(--el-border-radius-base);
-        border-left: 4px solid var(--el-color-primary);
+      .section-title {
+        font-size: var(--el-font-size-base);
+        font-weight: 600;
+        color: var(--el-text-color-primary);
+      }
+      
+      .section-desc {
+        font-size: var(--el-font-size-small);
+        color: var(--el-text-color-secondary);
+      }
+    }
+    
+    .selector-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    
+    .category-selector-item {
+      flex: 1;
+      min-width: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      
+      .category-label {
+        font-size: var(--el-font-size-small);
+        font-weight: 500;
+        color: var(--el-text-color-regular);
+        margin-bottom: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .symbol-select {
+        width: 100%;
+      }
+    }
+  }
+  
+  /* 纯符号选项样式 */
+  .symbol-option-only {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 6px 12px;
+    
+    .symbol-char {
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      font-size: 16px;
+      color: var(--el-color-primary);
+      text-align: center;
+      min-width: 24px;
+    }
+  }
+
+  /* 已选择符号区域 */
+  .selected-symbols-area {
+    margin-bottom: 16px;
+    padding: 8px;
+    background: var(--el-color-primary-light-9);
+    border: 1px solid var(--el-color-primary-light-7);
+    border-radius: 4px;
+    
+    .selected-symbols-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      
+      .symbols-count {
+        font-size: var(--el-font-size-small);
+        color: var(--el-color-primary-dark-2);
+        font-weight: 500;
+      }
+    }
+    
+    .selected-symbols-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      
+      .symbol-tag {
+        margin: 0;
+        height: 28px;
+        line-height: 28px;
+        padding: 0 12px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        font-size: 16px;
+        background: var(--el-color-primary);
+        color: white;
+        border: none;
+        border-radius: 6px;
         
-        h4 {
-          margin: 0;
-          color: var(--el-color-primary);
-          font-size: var(--el-font-size-large);
-          font-weight: 600;
+        &:hover {
+          background: var(--el-color-primary-dark-2);
         }
         
-        .category-desc {
-          color: var(--el-text-color-secondary);
-          font-size: var(--el-font-size-small);
+        .el-tag__close {
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 14px;
+          margin-left: 6px;
+          
+          &:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+          }
         }
       }
+    }
+  }
+
+
+
+      .symbol-categories {
+      .category-section {
+        margin-bottom: 8px;
+        border: 1px solid var(--el-border-color-lighter);
+        border-radius: 4px;
+        background: var(--el-bg-color);
+        
+        &.collapsed {
+          .collapse-icon {
+            transition: transform var(--el-transition-duration);
+          }
+        }
+        
+        .category-header {
+          &.clickable {
+            cursor: pointer;
+            user-select: none;
+            
+            &:hover {
+              background: var(--el-color-primary-light-9);
+              
+              .category-title h4 {
+                color: var(--el-color-primary);
+              }
+            }
+          }
+          
+          padding: 8px;
+          border-bottom: 1px solid var(--el-border-color-lighter);
+          
+          .category-title {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 2px;
+            
+            .collapse-icon {
+              color: var(--el-color-primary);
+              transition: transform var(--el-transition-duration);
+            }
+            
+            h4 {
+              margin: 0;
+              font-size: var(--el-font-size-large);
+              color: var(--el-text-color-primary);
+              transition: color var(--el-transition-duration);
+            }
+            
+            .category-count {
+              color: var(--el-text-color-placeholder);
+              font-size: var(--el-font-size-small);
+              font-weight: normal;
+            }
+          }
+          
+          .category-desc {
+            color: var(--el-text-color-secondary);
+            font-size: var(--el-font-size-small);
+          }
+        }
       
       .symbols-grid {
         display: grid;
@@ -3927,80 +4137,7 @@ watch(() => props.editingCommand, (newCommand) => {
     }
   }
   
-  .selected-symbols {
-    margin-top: var(--el-spacing-xl);
-    padding: var(--el-spacing-lg);
-    background: var(--el-color-success-light-9);
-    border: 1px solid var(--el-color-success-light-7);
-    border-radius: var(--el-border-radius-base);
-    
-    h4 {
-      margin: 0 0 var(--el-spacing-lg) 0;
-      color: var(--el-color-success-dark-2);
-      font-size: var(--el-font-size-large);
-    }
-    
-    .selected-symbols-list {
-      .selected-symbol-item {
-        display: flex;
-        align-items: center;
-        gap: var(--el-spacing-md);
-        padding: var(--el-spacing-md);
-        margin-bottom: var(--el-spacing-sm);
-        background: var(--el-bg-color);
-        border: 1px solid var(--el-border-color-light);
-        border-radius: var(--el-border-radius-base);
-        
-        &:last-child {
-          margin-bottom: 0;
-        }
-        
-        .symbol-info {
-          flex: 1;
-          display: flex;
-          align-items: center;
-          gap: var(--el-spacing-sm);
-          
-          .symbol-text {
-            font-family: var(--el-font-family-mono);
-            font-weight: bold;
-            color: var(--el-color-primary);
-            padding: var(--el-spacing-xs) var(--el-spacing-sm);
-            background: var(--el-color-primary-light-8);
-            border-radius: var(--el-border-radius-small);
-          }
-          
-          .symbol-name {
-            color: var(--el-text-color-primary);
-            font-weight: 500;
-          }
-          
-          .category-badge {
-            padding: 2px 6px;
-            background: var(--el-color-info-light-8);
-            color: var(--el-color-info-dark-2);
-            border-radius: var(--el-border-radius-small);
-            font-size: var(--el-font-size-small);
-          }
-        }
-        
-        .symbol-description {
-          flex: 2;
-          color: var(--el-text-color-secondary);
-          font-size: var(--el-font-size-small);
-        }
-        
-        .remove-btn {
-          flex-shrink: 0;
-          color: var(--el-color-danger);
-          
-          &:hover {
-            background: var(--el-color-danger-light-9);
-          }
-        }
-      }
-    }
-  }
+
   
   .empty-state {
     padding: var(--el-spacing-xl);
@@ -4033,31 +4170,5 @@ watch(() => props.editingCommand, (newCommand) => {
   }
 }
 
-// 符号分类说明样式
-.symbol-help {
-  margin-top: var(--el-spacing-xs);
-  padding: var(--el-spacing-xs) var(--el-spacing-sm);
-  background: var(--el-color-info-light-9);
-  border: 1px solid var(--el-color-info-light-7);
-  border-radius: var(--el-border-radius-small);
-  
-  .help-item {
-    font-size: var(--el-font-size-small);
-    color: var(--el-color-info-dark-2);
-    line-height: 1.6;
-    margin-bottom: var(--el-spacing-xs);
-    
-    &:last-child {
-      margin-bottom: 0;
-    }
-    
-    code {
-      padding: 2px 6px;
-      background: var(--el-color-success-light-8);
-      border-radius: var(--el-border-radius-small);
-      font-family: var(--el-font-family-mono);
-      color: var(--el-color-success-dark-2);
-    }
-  }
-}
+
 </style> 
