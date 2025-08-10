@@ -997,6 +997,14 @@
                       class="value-input"
                     />
                     <el-button
+                      :type="param.defaultValue === commonValue ? 'primary' : 'default'"
+                      size="small"
+                      @click="setDefaultValue(index, valueIndex)"
+                      class="default-btn"
+                    >
+                      {{ param.defaultValue === commonValue ? '默认' : '设为默认' }}
+                    </el-button>
+                    <el-button
                       type="text"
                       size="small"
                       @click="removeOptionCommonValue(index, valueIndex)"
@@ -1018,23 +1026,7 @@
                 </div>
               </div>
               
-              <div class="default-value">
-                <label class="values-label">默认参数值：</label>
-                <el-select
-                  v-model="param.defaultValue"
-                  placeholder="选择默认值（可选）"
-                  clearable
-                  size="small"
-                  class="default-value-select"
-                >
-                  <el-option
-                    v-for="commonValue in param.commonValues"
-                    :key="commonValue"
-                    :label="commonValue"
-                    :value="commonValue"
-                  />
-                </el-select>
-              </div>
+
             </div>
           </div>
         </div>
@@ -2261,6 +2253,20 @@ const removeOptionCommonValue = (paramIndex, valueIndex) => {
   // 如果删除的值是默认值，清空默认值选择
   if (param.defaultValue === removedValue) {
     param.defaultValue = ''
+  }
+}
+
+// 设置默认参数值
+const setDefaultValue = (paramIndex, valueIndex) => {
+  const param = newOptionForm.value.parameters[paramIndex]
+  const currentValue = param.commonValues[valueIndex]
+  
+  // 如果当前值已经是默认值，则取消默认值
+  if (param.defaultValue === currentValue) {
+    param.defaultValue = ''
+  } else {
+    // 否则设置为默认值（自动取消之前的默认值）
+    param.defaultValue = currentValue
   }
 }
 
@@ -3559,8 +3565,7 @@ watch(() => props.editingCommand, (newCommand) => {
       }
       
       .param-values-section {
-        .common-values,
-        .default-value {
+        .common-values {
           margin-bottom: var(--el-spacing-md);
           
           .values-label {
@@ -3583,6 +3588,11 @@ watch(() => props.editingCommand, (newCommand) => {
               flex: 1;
             }
             
+            .default-btn {
+              flex-shrink: 0;
+              min-width: 70px;
+            }
+            
             .remove-value-btn {
               flex-shrink: 0;
               padding: 4px;
@@ -3593,10 +3603,6 @@ watch(() => props.editingCommand, (newCommand) => {
           .add-value-btn {
             margin-top: var(--el-spacing-xs);
           }
-        }
-        
-        .default-value-select {
-          width: 200px;
         }
       }
     }
