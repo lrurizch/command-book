@@ -91,14 +91,14 @@
                   >
                     设为默认
                   </el-checkbox>
-                  <el-button
-                    type="danger"
-                    text
+                <el-button
+                  type="danger"
+                  text
                     @click="removeCommonCommand(index)"
                     title="删除常用命令"
-                  >
-                    ×
-                  </el-button>
+                >
+                  ×
+                </el-button>
                 </div>
               </div>
             </div>
@@ -128,7 +128,7 @@
             </div>
           </div>
         </div>
-
+        
         <!-- 使用说明 -->
         <div class="form-group">
           <label for="command-usage" class="form-label">
@@ -161,7 +161,7 @@
             </div>
           </div>
         </div>
-
+        
         <!-- 分类和标签 -->
         <div class="form-row">
           <div class="form-group">
@@ -213,18 +213,18 @@
                       class="parent-select"
                       placeholder="选择父分类（可选）"
                       clearable
-                    >
-                      <el-option
+                      >
+                        <el-option
                         v-for="parent in availableParentCategories"
                         :key="parent.id"
                         :value="parent.id"
                         :label="parent.name"
                       />
-                    </el-select>
+            </el-select>
                   </div>
                 </div>
               </div>
-              </div>
+            </div>
             </div>
             <!-- 显示原始分类对比 -->
             <div v-if="isEditing && getFieldChanges().category" class="comparison-info">
@@ -285,7 +285,7 @@
             </div>
           </div>
         </div>
-
+        
         <div class="form-group">
           <label for="main-command" class="form-label">
             主命令 <span class="required">*</span>
@@ -313,8 +313,8 @@
                 ↺ 恢复
               </el-button>
             </div>
-          </div>
         </div>
+      </div>
 
         <!-- 子命令管理 -->
         <div class="form-section">
@@ -486,25 +486,25 @@
           <div v-else class="parameters-list">
             <div
               v-for="(param, index) in form.parameters"
-              :key="index"
+            :key="index" 
               class="parameter-item"
-            >
+          >
               <div class="parameter-header">
                 <span class="parameter-index">{{ index + 1 }}</span>
-                <el-input
+              <el-input
                   v-model="param.name"
                   placeholder="参数名称"
                   class="parameter-name"
-                />
-                <el-button
-                  type="danger"
-                  text
+              />
+              <el-button
+                type="danger"
+                text
                   @click="removeParameter(index)"
                   title="删除参数"
-                >
+              >
                   <el-icon><Delete /></el-icon>
-                </el-button>
-              </div>
+              </el-button>
+            </div>
               
                              <div class="parameter-body">
                  <!-- 常用参数值列表 -->
@@ -512,23 +512,23 @@
                    <label class="form-label">常用参数值</label>
                    <div class="common-values-container">
                      <div v-if="param.commonValues.length === 0" class="empty-values">
-                       <el-button
-                         type="primary"
-                         text
+            <el-button
+              type="primary"
+              text
                          @click="addCommonValue(index)"
-                         icon="Plus"
-                       >
+              icon="Plus"
+            >
                          + 添加常用值
-                       </el-button>
-                     </div>
-                     
+            </el-button>
+      </div>
+
                      <div v-else class="values-list">
                        <div
                          v-for="(value, valueIndex) in param.commonValues"
                          :key="valueIndex"
                          class="value-item"
                        >
-                         <el-input
+              <el-input
                            v-model="value.value"
                            placeholder="参数值"
                            class="value-input"
@@ -541,15 +541,15 @@
                          >
                            默认
                          </el-radio>
-                         <el-button
-                           type="danger"
-                           text
+                <el-button
+                  type="danger"
+                  text
                            @click="removeCommonValue(index, valueIndex)"
                            title="删除此值"
-                         >
+                >
                            <el-icon><Delete /></el-icon>
-                         </el-button>
-                       </div>
+                </el-button>
+              </div>
                        
                        <!-- 无默认值选项 -->
                        <div class="value-item no-default-item">
@@ -562,22 +562,22 @@
                          >
                            选择
                          </el-radio>
-                       </div>
+            </div>
                        
                        <div class="values-actions">
-                         <el-button
-                           type="primary"
-                           text
+          <el-button
+            type="primary"
+            text
                            @click="addCommonValue(index)"
-                           icon="Plus"
-                         >
+            icon="Plus"
+          >
                            + 添加更多值
-                         </el-button>
-                       </div>
-                     </div>
-                   </div>
-                 </div>
-                 
+          </el-button>
+        </div>
+            </div>
+          </div>
+      </div>
+
                  <div class="form-group">
                    <label class="form-label">是否必带</label>
                    <el-switch
@@ -586,20 +586,20 @@
                      inactive-text="可选"
                      active-color="#409eff"
                    />
-                 </div>
-               </div>
+            </div>
+          </div>
             </div>
             
             <div class="parameters-actions">
-              <el-button
-                type="primary"
-                text
+          <el-button
+            type="primary"
+            text
                 @click="addCustomParameter"
-                icon="Plus"
-              >
+            icon="Plus"
+          >
                 + 添加参数
-              </el-button>
-            </div>
+          </el-button>
+        </div>
           </div>
         </div>
         
@@ -629,108 +629,72 @@
           符号
           <span v-if="isEditing && getFieldChanges().symbols" class="changed-indicator">已修改</span>
         </h3>
-        <div class="symbols-container">
-          <div 
-            v-for="(symbol, index) in form.symbols" 
-            :key="index" 
-            class="symbol-item"
-          >
-            <div class="symbol-form">
-              <!-- 符号分类选择 -->
-              <el-select
-                v-model="symbol.category"
-                placeholder="选择符号分类"
-                class="symbol-category"
-                @change="onSymbolCategoryChange(index)"
-              >
-                <el-option
-                  v-for="category in symbolCategories"
-                  :key="category.value"
-                  :label="category.label"
-                  :value="category.value"
-                >
-                  <span style="float: left">{{ category.label }}</span>
-                  <span style="float: right; color: var(--el-text-color-secondary); font-size: 13px">
-                    {{ category.description }}
-                  </span>
-                </el-option>
-              </el-select>
+                <div class="symbols-container">
+          <!-- 符号分类选择 -->
+          <div class="symbol-categories">
+            <div 
+              v-for="category in symbolCategories" 
+              :key="category.value"
+              class="category-section"
+            >
+              <div class="category-header">
+                <h4>{{ category.label }}</h4>
+                <span class="category-desc">{{ category.description }}</span>
+              </div>
               
-              <!-- 具体符号选择 -->
-              <el-select
-                v-model="symbol.symbol"
-                placeholder="选择符号"
-                class="symbol-select"
-                :disabled="!symbol.category"
-                filterable
-                allow-create
-              >
-                <el-option
-                  v-for="symbolOption in getSymbolsByCategory(symbol.category)"
+              <!-- 该分类下的符号列表 -->
+              <div class="symbols-grid">
+                <div
+                  v-for="symbolOption in getSymbolsByCategory(category.value)"
                   :key="symbolOption.symbol"
-                  :label="`${symbolOption.symbol} - ${symbolOption.name}`"
-                  :value="symbolOption.symbol"
+                  class="symbol-card"
+                  :class="{ 'selected': isSymbolSelected(symbolOption) }"
+                  @click="toggleSymbol(symbolOption, category.value)"
                 >
-                  <div class="symbol-option">
+                  <div class="symbol-content">
                     <span class="symbol-text">{{ symbolOption.symbol }}</span>
                     <span class="symbol-name">{{ symbolOption.name }}</span>
-                    <div class="symbol-desc">{{ symbolOption.description }}</div>
                   </div>
-                </el-option>
-              </el-select>
-              
-              <!-- 自定义用途说明 -->
-              <el-input
-                v-model="symbol.customDescription"
-                placeholder="自定义用途说明（可选）"
-                class="symbol-custom-desc"
-              />
-              
-              <!-- 使用示例 -->
-              <el-input
-                v-model="symbol.example"
-                placeholder="使用示例"
-                class="symbol-example"
-              />
-              
-              <el-button
-                type="danger"
-                text
-                @click="removeSymbol(index)"
-                title="删除符号"
+                  <div class="symbol-description">{{ symbolOption.description }}</div>
+                  <div v-if="isSymbolSelected(symbolOption)" class="selected-indicator">
+                    <el-icon><Check /></el-icon>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 已选择的符号列表 -->
+          <div v-if="form.symbols.length > 0" class="selected-symbols">
+            <h4>已选择的符号 ({{ form.symbols.length }})</h4>
+            <div class="selected-symbols-list">
+              <div
+                v-for="(symbol, index) in form.symbols"
+                :key="`${symbol.category}-${symbol.symbol}`"
+                class="selected-symbol-item"
               >
-                ×
-              </el-button>
+                <div class="symbol-info">
+                  <span class="symbol-text">{{ symbol.symbol }}</span>
+                  <span class="symbol-name">{{ symbol.name }}</span>
+                  <span class="category-badge">{{ getCategoryLabel(symbol.category) }}</span>
+                </div>
+                <div class="symbol-description">{{ symbol.description }}</div>
+                <el-button
+                  type="danger"
+                  text
+                  @click="removeSymbolByIndex(index)"
+                  title="移除符号"
+                  class="remove-btn"
+                >
+                  ×
+                </el-button>
+              </div>
             </div>
           </div>
           
           <!-- 空状态 -->
           <div v-if="form.symbols.length === 0" class="empty-state">
-            <div class="empty-content">
-              <el-empty description="暂无符号" :image-size="60" />
-            </div>
-            <div class="symbols-actions">
-              <el-button
-                type="primary"
-                text
-                @click="addSymbol"
-                icon="Plus"
-              >
-                + 添加第一个符号
-              </el-button>
-            </div>
-          </div>
-          
-          <!-- 添加符号按钮 -->
-          <div v-if="form.symbols.length > 0" class="symbols-actions">
-            <el-button
-              type="primary"
-              text
-              @click="addSymbol"
-              icon="Plus"
-            >
-              + 添加符号
-            </el-button>
+            <el-empty description="请从上方符号库中选择需要的符号" :image-size="60" />
           </div>
         </div>
         
@@ -758,6 +722,7 @@
             >
               ↺ 恢复
             </el-button>
+          </div>
           </div>
         </div>
       </div>
@@ -1159,7 +1124,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { InfoFilled, SuccessFilled, WarningFilled, Plus, Delete, FolderAdd, CircleCloseFilled } from '@element-plus/icons-vue'
+import { InfoFilled, SuccessFilled, WarningFilled, Plus, Delete, FolderAdd, CircleCloseFilled, Check } from '@element-plus/icons-vue'
 import { useCommandStore } from '../stores/command'
 import { showSaveSuccess } from '../utils/toast'
 // 简化为直接创建命令模板，无需复杂构建器
@@ -2616,20 +2581,37 @@ const handleDefaultChange = (index, isDefault) => {
 }
 
 // 符号管理
-const addSymbol = () => {
+const toggleSymbol = (symbolOption, categoryValue) => {
   if (!form.value.symbols) {
     form.value.symbols = []
   }
-  form.value.symbols.push({
-    category: '',
-    symbol: '',
-    customDescription: '',
-    example: ''
-  })
+  
+  const existingIndex = form.value.symbols.findIndex(s => 
+    s.symbol === symbolOption.symbol && s.category === categoryValue
+  )
+  
+  if (existingIndex >= 0) {
+    // 如果已选择，则移除
+    form.value.symbols.splice(existingIndex, 1)
+  } else {
+    // 如果未选择，则添加
+    form.value.symbols.push({
+      category: categoryValue,
+      symbol: symbolOption.symbol,
+      name: symbolOption.name,
+      description: symbolOption.description
+    })
+  }
 }
 
-const removeSymbol = (index) => {
+const removeSymbolByIndex = (index) => {
   form.value.symbols.splice(index, 1)
+}
+
+// 检查符号是否已选择
+const isSymbolSelected = (symbolOption) => {
+  if (!form.value.symbols) return false
+  return form.value.symbols.some(s => s.symbol === symbolOption.symbol)
 }
 
 // 根据分类获取符号列表
@@ -2638,12 +2620,10 @@ const getSymbolsByCategory = (category) => {
   return symbolsByCategory.value[category] || []
 }
 
-// 符号分类变化处理
-const onSymbolCategoryChange = (index) => {
-  // 清空符号选择，让用户重新选择
-  if (form.value.symbols[index]) {
-    form.value.symbols[index].symbol = ''
-  }
+// 获取分类标签
+const getCategoryLabel = (categoryValue) => {
+  const category = symbolCategories.value.find(c => c.value === categoryValue)
+  return category ? category.label : categoryValue
 }
 
 // 获取原始符号显示
@@ -2651,8 +2631,8 @@ const getOriginalSymbolsDisplay = () => {
   if (!originalData.value || !originalData.value.symbols || originalData.value.symbols.length === 0) {
     // 兼容旧的separators字段
     if (originalData.value && originalData.value.separators && originalData.value.separators.length > 0) {
-      return originalData.value.separators.map(sep => {
-        return `${sep.symbol}: ${sep.description || '无说明'} (示例: ${sep.example || '无'})`
+  return originalData.value.separators.map(sep => {
+    return `${sep.symbol}: ${sep.description || '无说明'} (示例: ${sep.example || '无'})`
       }).join('\n')
     }
     return '无符号'
@@ -2688,7 +2668,7 @@ watch(() => props.editingCommand, (newCommand) => {
       // commonParameters已删除
       commonCommands: newCommand.commonCommands ? [...newCommand.commonCommands] : [],
               symbols: newCommand.symbols ? [...newCommand.symbols] : [],
-        commandParameterSeparator: newCommand.commandParameterSeparator || ' '  // 确保有默认值
+      commandParameterSeparator: newCommand.commandParameterSeparator || ' '  // 确保有默认值
     }
     
     form.value = { ...commandData }
@@ -2897,7 +2877,7 @@ watch(() => props.editingCommand, (newCommand) => {
 
 /* 按钮统一样式 */
 .el-button {
-  border-radius: var(--el-border-radius-small);
+      border-radius: var(--el-border-radius-small);
   font-weight: 500;
   transition: all var(--el-transition-duration);
   
@@ -2960,8 +2940,8 @@ watch(() => props.editingCommand, (newCommand) => {
   border: 2px dashed var(--el-color-info-light-5);
   border-radius: var(--el-border-radius-base);
   transition: all var(--el-transition-duration);
-  
-  &:hover {
+      
+      &:hover {
     border-color: var(--el-color-primary-light-5);
     background: var(--el-color-primary-light-9);
   }
@@ -2969,7 +2949,7 @@ watch(() => props.editingCommand, (newCommand) => {
   .el-empty {
     .el-empty__description {
       color: var(--el-text-color-secondary);
-      font-size: var(--el-font-size-small);
+    font-size: var(--el-font-size-small);
     }
   }
 }
@@ -2977,8 +2957,8 @@ watch(() => props.editingCommand, (newCommand) => {
 /* 动作按钮容器统一样式 */
 .parameters-actions,
 .option-buttons {
-  display: flex;
-  gap: var(--el-spacing-sm);
+      display: flex;
+      gap: var(--el-spacing-sm);
   align-items: center;
   padding: var(--el-spacing-md) 0;
   border-top: 1px solid var(--el-border-color-lighter);
@@ -2991,11 +2971,11 @@ watch(() => props.editingCommand, (newCommand) => {
 .subcommand-item {
   background: var(--el-bg-color);
   border: 1px solid var(--el-border-color-light);
-  border-radius: var(--el-border-radius-base);
+        border-radius: var(--el-border-radius-base);
   margin-bottom: var(--el-spacing-md);
   transition: all var(--el-transition-duration);
-  
-  &:hover {
+    
+    &:hover {
     border-color: var(--el-color-primary-light-5);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
@@ -3775,11 +3755,11 @@ watch(() => props.editingCommand, (newCommand) => {
      /* 常用参数值样式 */
      .common-values-container {
        .empty-values {
-         text-align: center;
+    text-align: center;
          padding: var(--el-spacing-lg);
          border: 2px dashed var(--el-border-color-light);
          border-radius: var(--el-border-radius-base);
-         color: var(--el-text-color-secondary);
+    color: var(--el-text-color-secondary);
        }
        
        .values-list {
@@ -3805,7 +3785,7 @@ watch(() => props.editingCommand, (newCommand) => {
               flex-shrink: 0;
               
               :deep(.el-radio__label) {
-                font-size: var(--el-font-size-small);
+      font-size: var(--el-font-size-small);
                 color: var(--el-text-color-regular);
               }
               
@@ -3847,75 +3827,187 @@ watch(() => props.editingCommand, (newCommand) => {
 
 // 符号样式
 .symbols-container {
-  .symbol-item {
-    margin-bottom: var(--el-spacing-md);
+  .symbol-categories {
+    .category-section {
+      margin-bottom: var(--el-spacing-xl);
+      
+      .category-header {
+        display: flex;
+        align-items: center;
+        gap: var(--el-spacing-md);
+        margin-bottom: var(--el-spacing-lg);
+        padding: var(--el-spacing-md);
+        background: var(--el-color-primary-light-9);
+        border-radius: var(--el-border-radius-base);
+        border-left: 4px solid var(--el-color-primary);
+        
+        h4 {
+          margin: 0;
+          color: var(--el-color-primary);
+          font-size: var(--el-font-size-large);
+          font-weight: 600;
+        }
+        
+        .category-desc {
+          color: var(--el-text-color-secondary);
+          font-size: var(--el-font-size-small);
+        }
+      }
+      
+      .symbols-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: var(--el-spacing-md);
+        
+        .symbol-card {
+          position: relative;
+          padding: var(--el-spacing-md);
+          border: 2px solid var(--el-border-color-light);
+          border-radius: var(--el-border-radius-base);
+          background: var(--el-bg-color);
+          cursor: pointer;
+          transition: all var(--el-transition-duration);
+          
+          &:hover {
+            border-color: var(--el-color-primary-light-5);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+          }
+          
+          &.selected {
+            border-color: var(--el-color-primary);
+            background: var(--el-color-primary-light-9);
+            box-shadow: 0 4px 12px rgba(64, 158, 255, 0.3);
+          }
+          
+          .symbol-content {
+            display: flex;
+            align-items: center;
+            gap: var(--el-spacing-sm);
+            margin-bottom: var(--el-spacing-sm);
+            
+            .symbol-text {
+              font-family: var(--el-font-family-mono);
+              font-weight: bold;
+              color: var(--el-color-primary);
+              font-size: var(--el-font-size-large);
+              padding: var(--el-spacing-xs) var(--el-spacing-sm);
+              background: var(--el-color-primary-light-8);
+              border-radius: var(--el-border-radius-small);
+            }
+            
+            .symbol-name {
+              color: var(--el-text-color-primary);
+              font-weight: 500;
+            }
+          }
+          
+          .symbol-description {
+            color: var(--el-text-color-secondary);
+            font-size: var(--el-font-size-small);
+            line-height: 1.5;
+          }
+          
+          .selected-indicator {
+            position: absolute;
+            top: var(--el-spacing-sm);
+            right: var(--el-spacing-sm);
+            width: 20px;
+            height: 20px;
+            background: var(--el-color-primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+          }
+        }
+      }
+    }
+  }
+  
+  .selected-symbols {
+    margin-top: var(--el-spacing-xl);
+    padding: var(--el-spacing-lg);
+    background: var(--el-color-success-light-9);
+    border: 1px solid var(--el-color-success-light-7);
+    border-radius: var(--el-border-radius-base);
     
-    .symbol-form {
-      display: flex;
-      flex-direction: column;
-      gap: var(--el-spacing-sm);
-      padding: var(--el-spacing-md);
-      border: 1px solid var(--el-border-color-light);
-      border-radius: var(--el-border-radius-base);
-      background: var(--el-fill-color-extra-light);
-      
-      .symbol-category {
-        flex: 1;
-      }
-      
-      .symbol-select {
-        flex: 1;
-      }
-      
-      .symbol-custom-desc {
-        flex: 1;
-      }
-      
-      .symbol-example {
-        flex: 1;
+    h4 {
+      margin: 0 0 var(--el-spacing-lg) 0;
+      color: var(--el-color-success-dark-2);
+      font-size: var(--el-font-size-large);
+    }
+    
+    .selected-symbols-list {
+      .selected-symbol-item {
+        display: flex;
+        align-items: center;
+        gap: var(--el-spacing-md);
+        padding: var(--el-spacing-md);
+        margin-bottom: var(--el-spacing-sm);
+        background: var(--el-bg-color);
+        border: 1px solid var(--el-border-color-light);
+        border-radius: var(--el-border-radius-base);
+        
+        &:last-child {
+          margin-bottom: 0;
+        }
+        
+        .symbol-info {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          gap: var(--el-spacing-sm);
+          
+          .symbol-text {
+            font-family: var(--el-font-family-mono);
+            font-weight: bold;
+            color: var(--el-color-primary);
+            padding: var(--el-spacing-xs) var(--el-spacing-sm);
+            background: var(--el-color-primary-light-8);
+            border-radius: var(--el-border-radius-small);
+          }
+          
+          .symbol-name {
+            color: var(--el-text-color-primary);
+            font-weight: 500;
+          }
+          
+          .category-badge {
+            padding: 2px 6px;
+            background: var(--el-color-info-light-8);
+            color: var(--el-color-info-dark-2);
+            border-radius: var(--el-border-radius-small);
+            font-size: var(--el-font-size-small);
+          }
+        }
+        
+        .symbol-description {
+          flex: 2;
+          color: var(--el-text-color-secondary);
+          font-size: var(--el-font-size-small);
+        }
+        
+        .remove-btn {
+          flex-shrink: 0;
+          color: var(--el-color-danger);
+          
+          &:hover {
+            background: var(--el-color-danger-light-9);
+          }
+        }
       }
     }
   }
   
   .empty-state {
-    padding: var(--el-spacing-lg);
+    padding: var(--el-spacing-xl);
     text-align: center;
     background: var(--el-color-info-light-9);
     border: 2px dashed var(--el-color-info-light-5);
     border-radius: var(--el-border-radius-base);
-    transition: all var(--el-transition-duration);
-    
-    &:hover {
-      border-color: var(--el-color-primary-light-5);
-      background: var(--el-color-primary-light-9);
-    }
-    
-    .empty-content {
-      .el-empty {
-        .el-empty__description {
-          color: var(--el-text-color-secondary);
-          font-size: var(--el-font-size-small);
-        }
-      }
-    }
-    
-    .symbols-actions {
-      display: flex;
-      gap: var(--el-spacing-sm);
-      align-items: center;
-      padding: var(--el-spacing-md) 0;
-      border-top: 1px solid var(--el-border-color-lighter);
-      margin-top: var(--el-spacing-lg);
-    }
-  }
-}
-
-  .symbols-actions {
-    display: flex;
-    gap: var(--el-spacing-sm);
-    align-items: center;
-    padding: var(--el-spacing-md) 0;
-    border-top: 1px solid var(--el-border-color-lighter);
     margin-top: var(--el-spacing-lg);
   }
 }
