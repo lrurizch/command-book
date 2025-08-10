@@ -448,14 +448,24 @@
               </el-button>
             </div>
           </div>
-          <el-button
-            type="primary"
-            text
-            @click="addCommonParam"
-            icon="Plus"
-          >
-            + 添加参数组合
-          </el-button>
+          <div class="common-params-actions">
+            <el-button
+              type="primary"
+              text
+              @click="addCommonParam"
+              icon="Plus"
+            >
+              + 添加参数组合
+            </el-button>
+            <el-button
+              type="success"
+              text
+              @click="showCommonParamsModal(-1)"
+              icon="Collection"
+            >
+              从已有选项参数中选择
+            </el-button>
+          </div>
         </div>
         <!-- 显示原始常用参数对比 -->
         <div v-if="isEditing && getFieldChanges().commonParameters" class="comparison-info">
@@ -1060,13 +1070,24 @@
           </div>
         </div>
         
-        <el-button
-          size="small"
-          @click="addNewOptionParameter"
-          icon="Plus"
-        >
-          添加参数
-        </el-button>
+        <div class="common-params-actions">
+          <el-button
+            size="small"
+            @click="addNewOptionParameter"
+            icon="Plus"
+          >
+            添加参数
+          </el-button>
+          <el-button
+            size="small"
+            @click="showCommonParamsModal(-1)"
+            icon="Collection"
+            type="primary"
+            plain
+          >
+            从已有选项参数中选择
+          </el-button>
+        </div>
       </div>
     </div>
     
@@ -1086,11 +1107,12 @@
   <!-- 常用选项参数选择对话框 -->
   <el-dialog
     v-model="showCommonParamsDialog"
-    title="选择已有选项和参数"
+    :title="currentOptionIndex === -1 ? '选择已有选项和参数 - 创建常用组合' : '选择已有选项和参数 - 添加到选项'"
     width="700px"
   >
     <div class="common-params-selection">
-      <p>从当前命令已添加的选项和参数中选择：</p>
+      <p v-if="currentOptionIndex === -1">从当前命令已添加的选项和参数中选择，创建常用参数组合：</p>
+      <p v-else>从当前命令已添加的选项和参数中选择，添加到当前选项：</p>
       
       <div v-if="Object.keys(filteredCommonParams).length === 0" class="empty-state">
         <p>当前命令还没有添加任何选项或参数</p>
@@ -2263,58 +2285,78 @@ const confirmAddCommonParams = () => {
     return
   }
   
-  let targetOption
-  if (currentOptionIndex.value === -1) {
-    // 在新选项表单中添加
-    targetOption = newOptionForm.value
-  } else {
-    // 在已有选项中添加
-    targetOption = form.value.options[currentOptionIndex.value]
-  }
-  
-  if (!targetOption.parameters) {
-    targetOption.parameters = []
-  }
-  
-  let addedCount = 0
   const existingOptionsAndParams = getExistingOptionsAndParams.value
   
-  // 添加选中的选项和参数
-  selectedCommonParams.value.forEach(selectedKey => {
-    const [category, paramIndex] = selectedKey.split('-')
-    const item = existingOptionsAndParams[category][parseInt(paramIndex)]
+  if (currentOptionIndex.value === -1) {
+    // 命令级别：创建常用参数组合
+    const selectedItems = []
     
-    if (item.type === 'option') {
-      // 复制整个选项到目标位置（作为参数使用选项名）
-      targetOption.parameters.push({
-        name: item.name,
-        description: `复制的选项: ${item.description}`,
-        type: item.paramType || ParameterType.OPTIONAL
-      })
-      addedCount++
-    } else if (item.type === 'option-param') {
-      // 复制选项的参数
-      targetOption.parameters.push({
-        name: item.data.name,
-        description: item.data.description || item.description,
-        type: item.paramType || ParameterType.OPTIONAL,
-        defaultValue: item.data.defaultValue
-      })
-      addedCount++
-    } else if (item.type === 'command-param') {
-      // 复制命令级参数
-      targetOption.parameters.push({
-        name: item.data.name,
-        description: item.data.description || item.description,
-        type: item.paramType || ParameterType.OPTIONAL,
-        defaultValue: item.data.defaultValue
-      })
-      addedCount++
+    selectedCommonParams.value.forEach(selectedKey => {
+      const [category, paramIndex] = selectedKey.split('-')
+      const item = existingOptionsAndParams[category][parseInt(paramIndex)]
+      selectedItems.push(item.name)
+    })
+    
+    // 创建参数组合字符串
+    const paramsCombination = selectedItems.join(' ')
+    
+    // 添加到命令的常用参数组合
+    form.value.commonParameters.push({
+      name: `组合${form.value.commonParameters.length + 1}`,
+      params: paramsCombination,
+      description: `由已有选项参数组合而成：${selectedItems.join(', ')}`
+    })
+    
+    showCommonParamsDialog.value = false
+    ElMessage.success(`已创建常用参数组合：${paramsCombination}`)
+  } else {
+    // 选项级别：添加到选项的参数中
+    let targetOption
+    if (currentOptionIndex.value === -1) {
+      targetOption = newOptionForm.value
+    } else {
+      targetOption = form.value.options[currentOptionIndex.value]
     }
-  })
-  
-  showCommonParamsDialog.value = false
-  ElMessage.success(`已添加 ${addedCount} 个选项/参数`)
+    
+    if (!targetOption.parameters) {
+      targetOption.parameters = []
+    }
+    
+    let addedCount = 0
+    
+    selectedCommonParams.value.forEach(selectedKey => {
+      const [category, paramIndex] = selectedKey.split('-')
+      const item = existingOptionsAndParams[category][parseInt(paramIndex)]
+      
+      if (item.type === 'option') {
+        targetOption.parameters.push({
+          name: item.name,
+          description: `复制的选项: ${item.description}`,
+          type: item.paramType || ParameterType.OPTIONAL
+        })
+        addedCount++
+      } else if (item.type === 'option-param') {
+        targetOption.parameters.push({
+          name: item.data.name,
+          description: item.data.description || item.description,
+          type: item.paramType || ParameterType.OPTIONAL,
+          defaultValue: item.data.defaultValue
+        })
+        addedCount++
+      } else if (item.type === 'command-param') {
+        targetOption.parameters.push({
+          name: item.data.name,
+          description: item.data.description || item.description,
+          type: item.paramType || ParameterType.OPTIONAL,
+          defaultValue: item.data.defaultValue
+        })
+        addedCount++
+      }
+    })
+    
+    showCommonParamsDialog.value = false
+    ElMessage.success(`已添加 ${addedCount} 个选项/参数`)
+  }
 }
 
 // 获取已添加的选项和参数
