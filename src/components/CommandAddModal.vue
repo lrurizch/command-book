@@ -1001,15 +1001,6 @@
           >
             添加参数
           </el-button>
-          <el-button
-            size="small"
-            @click="showCommonParamsModal(-1)"
-            icon="Collection"
-            type="primary"
-            plain
-          >
-            从已有选项参数中选择
-          </el-button>
         </div>
       </div>
     </div>
