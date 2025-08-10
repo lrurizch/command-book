@@ -163,6 +163,128 @@
         </div>
 
         <!-- 分类和标签 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="command-category" class="form-label">
+              分类
+              <span v-if="isEditing && getFieldChanges().category" class="changed-indicator">已修改</span>
+            </label>
+            <div class="category-selector-container" :class="{ 'field-changed': isEditing && getFieldChanges().category }">
+              <div class="category-selector">
+                          <el-select
+                v-model="form.category"
+                filterable
+                allow-create
+                clearable
+                default-first-option
+                  placeholder="选择或输入分类（可选）"
+                class="w-full"
+                @visible-change="handleCategoryDropdownToggle"
+                @create="handleCreateCategory"
+              >
+                <el-option
+                  v-for="category in hierarchicalCategories"
+                  :key="category.id"
+                  :value="category.id"
+                  :label="category.level === 0 ? category.name : `${category.name} (${category.pathInfo})`"
+                  :class="`level-${category.level}-option`"
+                />
+              </el-select>
+              
+              <!-- 分类状态提示 -->
+              <div 
+                v-if="categoryStatus.message" 
+                :class="['category-status-hint', `hint-${categoryStatus.type}`]"
+              >
+                <el-icon class="hint-icon">
+                  <InfoFilled v-if="categoryStatus.type === 'info'" />
+                  <WarningFilled v-if="categoryStatus.type === 'warning'" />
+                  <SuccessFilled v-if="categoryStatus.type === 'success'" />
+                </el-icon>
+                <span class="hint-text">{{ categoryStatus.message }}</span>
+                <span v-if="categoryStatus.level" class="category-level-info">（{{ categoryStatus.level }}级分类）</span>
+                
+                <!-- 添加父分类选择 -->
+                <div v-if="categoryStatus.type === 'warning' && categoryStatus.action === 'needParent'" class="category-actions">
+                  <div class="parent-category-inline">
+                    <span class="parent-label">选择父分类:</span>
+                    <el-select
+                      v-model="categoryCreation.parentId"
+                      class="parent-select"
+                      placeholder="选择父分类（可选）"
+                      clearable
+                    >
+                      <el-option
+                        v-for="parent in availableParentCategories"
+                        :key="parent.id"
+                        :value="parent.id"
+                        :label="parent.name"
+                      />
+                    </el-select>
+                  </div>
+                </div>
+              </div>
+              </div>
+            </div>
+            <!-- 显示原始分类对比 -->
+            <div v-if="isEditing && getFieldChanges().category" class="comparison-info">
+              <div class="original-value">
+                <span class="label">原始分类:</span>
+                <span class="original-text">{{ getOriginalCategoryDisplay() }}</span>
+                <el-button 
+                  type="text" 
+                  size="small" 
+                  @click="restoreField('category')"
+                  class="restore-btn"
+                  title="恢复到原始值"
+                >
+                  ↺ 恢复
+                </el-button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="command-tags" class="form-label">
+              标签
+              <span v-if="isEditing && getFieldChanges().tags" class="changed-indicator">已修改</span>
+            </label>
+            <el-select
+              id="command-tags"
+              v-model="form.tags"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              placeholder="添加标签 (可选，支持创建新标签)"
+              class="w-full"
+              :class="{ 'field-changed': isEditing && getFieldChanges().tags }"
+            >
+              <el-option
+                v-for="tag in availableTags"
+                :key="tag"
+                :label="tag"
+                :value="tag"
+              />
+            </el-select>
+            <!-- 显示原始标签对比 -->
+            <div v-if="isEditing && getFieldChanges().tags" class="comparison-info">
+              <div class="original-value">
+                <span class="label">原始标签:</span>
+                <span class="original-text">{{ (originalData.tags || []).join(', ') || '无' }}</span>
+                <el-button 
+                  type="text" 
+                  size="small" 
+                  @click="restoreField('tags')"
+                  class="restore-btn"
+                  title="恢复到原始值"
+                >
+                  ↺ 恢复
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div class="form-group">
           <label for="main-command" class="form-label">
@@ -261,172 +383,7 @@
 
         
 
-        
 
-        
-        <div class="form-row">
-          <div class="form-group">
-            <label for="command-category" class="form-label">
-              分类
-              <span v-if="isEditing && getFieldChanges().category" class="changed-indicator">已修改</span>
-            </label>
-            <div class="category-selector-container" :class="{ 'field-changed': isEditing && getFieldChanges().category }">
-              <div class="category-selector">
-                          <el-select
-                v-model="form.category"
-                filterable
-                allow-create
-                clearable
-                default-first-option
-                  placeholder="选择或输入分类（可选）"
-                class="w-full"
-                @visible-change="handleCategoryDropdownToggle"
-                @create="handleCreateCategory"
-              >
-                <el-option
-                  v-for="category in hierarchicalCategories"
-                  :key="category.id"
-                  :value="category.id"
-                  :label="category.level === 0 ? category.name : `${category.name} (${category.pathInfo})`"
-                  :class="`level-${category.level}-option`"
-                />
-              </el-select>
-              
-              <!-- 分类状态提示 -->
-              <div 
-                v-if="categoryStatus.message" 
-                :class="['category-status-hint', `hint-${categoryStatus.type}`]"
-              >
-                <el-icon class="hint-icon">
-                  <InfoFilled v-if="categoryStatus.type === 'info'" />
-                  <SuccessFilled v-if="categoryStatus.type === 'success'" />
-                  <WarningFilled v-if="categoryStatus.type === 'warning'" />
-                </el-icon>
-                <span class="hint-text">{{ categoryStatus.message }}</span>
-                
-                <!-- 如果是现有分类，显示层级信息 -->
-                <span 
-                  v-if="categoryStatus.exists && categoryStatus.category" 
-                  class="category-level-info"
-                >
-                  ({{ ['一', '二', '三', '四'][categoryStatus.category.level] }}级分类)
-                </span>
-                
-                <!-- 如果是新分类，显示父分类选择 -->
-                <div v-if="!categoryStatus.exists && categoryStatus.message" class="category-actions">
-                  <div class="parent-category-inline">
-                    <label class="parent-label">父分类：</label>
-                    <el-select
-                      v-model="selectedParentCategory"
-                      placeholder="选择父分类（可选）"
-                      clearable
-                      size="small"
-                      class="parent-select"
-                    >
-                      <el-option-group
-                        v-for="topCategory in parentCategoryOptions"
-                        :key="topCategory.id"
-                        :label="topCategory.name"
-                      >
-                        <el-option
-                          :key="topCategory.id"
-                          :label="topCategory.name"
-                          :value="topCategory.id"
-                        />
-                        <template v-for="level1 in topCategory.children" :key="level1.id">
-                          <el-option
-                            :label="`├─ ${level1.name}`"
-                            :value="level1.id"
-                            class="level-1-option"
-                          />
-                          <template v-for="level2 in level1.children" :key="level2.id">
-                            <el-option
-                              :label="`│  ├─ ${level2.name}`"
-                              :value="level2.id"
-                              class="level-2-option"
-                            />
-                            <template v-for="level3 in level2.children" :key="level3.id">
-                              <el-option
-                                :label="`│  │  └─ ${level3.name}`"
-                                :value="level3.id"
-                                class="level-3-option"
-                              />
-                            </template>
-                          </template>
-                        </template>
-                      </el-option-group>
-            </el-select>
-                  </div>
-                </div>
-              </div>
-            </div>
-            </div>
-            <!-- 显示原始分类对比 -->
-            <div v-if="isEditing && getFieldChanges().category" class="comparison-info">
-              <div class="original-value">
-                <span class="label">原始值:</span>
-                <span class="original-text">{{ getOriginalCategoryName() }}</span>
-                <el-button 
-                  type="text" 
-                  size="small" 
-                  @click="restoreField('category')"
-                  class="restore-btn"
-                  title="恢复到原始值"
-                >
-                  ↺ 恢复
-                </el-button>
-              </div>
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="command-tags" class="form-label">
-              标签
-              <span v-if="isEditing && getFieldChanges().tags" class="changed-indicator">已修改</span>
-            </label>
-            <el-select
-              v-model="form.tags"
-              multiple
-              filterable
-              allow-create
-              default-first-option
-              placeholder="选择或输入标签"
-              class="w-full"
-              :class="{ 'field-changed': isEditing && getFieldChanges().tags }"
-            >
-              <el-option
-                v-for="tag in commandStore.allTags"
-                :key="tag"
-                :label="tag"
-                :value="tag"
-              />
-            </el-select>
-            <!-- 显示原始标签对比 -->
-            <div v-if="isEditing && getFieldChanges().tags" class="comparison-info">
-              <div class="original-value">
-                <span class="label">原始值:</span>
-                <span class="original-text">{{ getOriginalTagsDisplay() }}</span>
-                <el-button 
-                  type="text" 
-                  size="small" 
-                  @click="restoreField('tags')"
-                  class="restore-btn"
-                  title="恢复到原始值"
-                >
-                  ↺ 恢复
-                </el-button>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- 命令分隔符说明 -->
-        <div class="separator-hint">
-          <span class="hint-text">
-            配置命令时，可以通过添加选项来自定义命令与选项、选项与参数之间的分隔符（如空格、等号=、冒号:等），以适应不同命令行工具的语法要求。
-          </span>
-        </div>
-      </div>
 
       <!-- 命令选项 -->
       <div class="form-section">
@@ -2553,54 +2510,95 @@ watch(() => props.editingCommand, (newCommand) => {
 </script>
 
 <style lang="scss" scoped>
-.command-add-modal {
-  .mode-selector {
-    margin-bottom: var(--el-spacing-lg);
-    text-align: center;
-    padding: var(--el-spacing-md);
-    background: var(--el-fill-color-extra-light);
-    border-radius: var(--el-border-radius-base);
-  }
+/* ===== 统一命令模板创建表单样式 ===== */
 
-  .universal-builder-container {
-    padding: var(--el-spacing-md);
-    background: var(--el-fill-color-blank);
-    border-radius: var(--el-border-radius-base);
-    border: 1px solid var(--el-border-color-light);
-  }
-
-  :deep(.el-dialog__body) {
-    padding: var(--el-spacing-lg);
-  }
-}
+/* 主容器样式 */
 .command-form {
   padding: var(--el-dialog-padding-primary);
+  background: var(--el-bg-color-page);
 }
 
+/* 表单区块统一样式 */
 .form-section {
-  margin-bottom: var(--el-spacing-lg);
+  margin-bottom: var(--el-spacing-xl);
+  padding: var(--el-spacing-lg);
+  background: var(--el-bg-color);
+  border-radius: var(--el-border-radius-base);
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  transition: all var(--el-transition-duration);
+  
+  &:hover {
+    border-color: var(--el-border-color-light);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  }
   
   .section-title {
-    margin: 0 0 var(--el-spacing-md) 0;
+    margin: 0 0 var(--el-spacing-lg) 0;
+    padding: 0 0 var(--el-spacing-sm) 0;
     font-size: var(--el-font-size-large);
     font-weight: var(--el-font-weight-bold);
-    color: var(--el-text-color-primary);
-    border-bottom: 2px solid var(--el-border-color);
-    padding-bottom: var(--el-spacing-xs);
+    color: var(--el-color-primary);
+    border-bottom: 2px solid var(--el-color-primary-light-8);
+    display: flex;
+    align-items: center;
+    gap: var(--el-spacing-sm);
+    
+    .info-icon {
+      color: var(--el-color-info);
+      cursor: help;
+      transition: color var(--el-transition-duration);
+      
+      &:hover {
+        color: var(--el-color-primary);
+      }
+    }
+    
+    .changed-indicator {
+      color: var(--el-color-warning);
+      font-size: var(--el-font-size-small);
+      font-weight: 500;
+      padding: 2px 8px;
+      background: var(--el-color-warning-light-9);
+      border-radius: var(--el-border-radius-small);
+      border: 1px solid var(--el-color-warning-light-7);
+    }
+  }
+  
+  .section-description {
+    margin-bottom: var(--el-spacing-lg);
+    padding: var(--el-spacing-md);
+    background: var(--el-color-info-light-9);
+    border-left: 4px solid var(--el-color-info);
+    border-radius: 0 var(--el-border-radius-small) var(--el-border-radius-small) 0;
+    color: var(--el-color-info-dark-2);
+    font-size: var(--el-font-size-small);
+    line-height: 1.6;
   }
 }
 
+/* 表单行统一样式 */
 .form-row {
   display: flex;
-  gap: var(--el-spacing-md);
+  gap: var(--el-spacing-lg);
+  margin-bottom: var(--el-spacing-lg);
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
   
   .form-group {
     flex: 1;
   }
 }
 
+/* 表单组统一样式 */
 .form-group {
-  margin-bottom: var(--el-spacing-md);
+  margin-bottom: var(--el-spacing-lg);
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
   
   .form-label {
     display: flex;
@@ -2612,6 +2610,7 @@ watch(() => props.editingCommand, (newCommand) => {
     
     .required {
       color: var(--el-color-danger);
+      margin-left: 2px;
     }
     
     .changed-indicator {
@@ -2622,86 +2621,128 @@ watch(() => props.editingCommand, (newCommand) => {
       padding: 1px 6px;
       background: var(--el-color-warning-light-9);
       border-radius: var(--el-border-radius-small);
+      border: 1px solid var(--el-color-warning-light-7);
+    }
+  }
+  
+  /* 输入框统一样式 */
+  .el-input,
+  .el-select,
+  .el-textarea {
+    .el-input__wrapper,
+    .el-textarea__inner {
+      border-radius: var(--el-border-radius-small);
+      transition: all var(--el-transition-duration);
+      
+      &:hover {
+        border-color: var(--el-color-primary-light-5);
+      }
+      
+      &:focus-within {
+        border-color: var(--el-color-primary);
+        box-shadow: 0 0 0 2px var(--el-color-primary-light-9);
+      }
+    }
+  }
+  
+  /* 字段变更状态样式 */
+  &.field-changed {
+    .el-input__wrapper,
+    .el-textarea__inner {
+      border-color: var(--el-color-warning-light-5);
+      background-color: var(--el-color-warning-light-9);
     }
   }
 }
 
-// 字段变化样式
-.field-changed {
-  border-color: var(--el-color-warning) !important;
-  background-color: var(--el-color-warning-light-9) !important;
-}
-
-// 对比信息样式
+/* 对比信息统一样式 */
 .comparison-info {
   margin-top: var(--el-spacing-sm);
   padding: var(--el-spacing-sm);
-  background: var(--el-fill-color-extra-light);
-  border-radius: var(--el-border-radius-base);
-  border-left: 3px solid var(--el-color-info);
+  background: var(--el-color-info-light-9);
+  border: 1px solid var(--el-color-info-light-7);
+  border-radius: var(--el-border-radius-small);
   
   .original-value {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--el-spacing-sm);
     
     .label {
       font-size: var(--el-font-size-small);
-      color: var(--el-text-color-secondary);
+      color: var(--el-color-info-dark-2);
       font-weight: 500;
-      margin-right: var(--el-spacing-sm);
-      flex-shrink: 0;
+      white-space: nowrap;
     }
     
-    .original-text {
-      color: var(--el-text-color-regular);
+    .original-text,
+    .original-common-commands,
+    .original-subcommands {
+      flex: 1;
       font-size: var(--el-font-size-small);
-      background: var(--el-fill-color-light);
+      color: var(--el-text-color-regular);
+      background: var(--el-bg-color);
       padding: var(--el-spacing-xs) var(--el-spacing-sm);
       border-radius: var(--el-border-radius-small);
-      display: inline-block;
-      max-width: 100%;
-      white-space: pre-wrap;
-      word-break: break-all;
-      margin: 0;
-      flex: 1;
+      border: 1px solid var(--el-border-color-lighter);
+      max-height: 60px;
+      overflow-y: auto;
     }
     
     .restore-btn {
       color: var(--el-color-primary);
-      padding: 2px 6px;
       font-size: var(--el-font-size-small);
-      flex-shrink: 0;
+      padding: var(--el-spacing-xs) var(--el-spacing-sm);
       
       &:hover {
-        color: var(--el-color-primary-light-3);
+        color: var(--el-color-primary-dark-2);
         background: var(--el-color-primary-light-9);
       }
-    }
-    
-    .original-parameters {
-      color: var(--el-text-color-regular);
-      font-size: var(--el-font-size-small);
-      background: var(--el-fill-color-light);
-      padding: var(--el-spacing-sm);
-      border-radius: var(--el-border-radius-small);
-      white-space: pre-line;
-      line-height: 1.5;
-      font-family: monospace;
-      flex: 1;
     }
   }
 }
 
-.command-help {
-  margin-top: var(--el-spacing-sm);
-  padding: var(--el-spacing-sm);
-  background: var(--el-fill-color-light);
-  border-radius: var(--el-border-radius-base);
+/* 按钮统一样式 */
+.el-button {
+  border-radius: var(--el-border-radius-small);
+  font-weight: 500;
+  transition: all var(--el-transition-duration);
   
-  .help-item {
+  &.is-text {
+    &:hover {
+      background-color: var(--el-color-primary-light-9);
+    }
+  }
+  
+  &[type="primary"] {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(64, 158, 255, 0.3);
+    }
+  }
+  
+  &[type="danger"] {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(245, 108, 108, 0.3);
+    }
+  }
+}
+
+/* 帮助提示统一样式 */
+.command-help,
+.separator-hint {
+  margin-top: var(--el-spacing-md);
+  padding: var(--el-spacing-md);
+  background: var(--el-color-success-light-9);
+  border: 1px solid var(--el-color-success-light-7);
+  border-radius: var(--el-border-radius-small);
+  
+  .help-item,
+  .hint-text {
     font-size: var(--el-font-size-small);
-    color: var(--el-text-color-secondary);
+    color: var(--el-color-success-dark-2);
+    line-height: 1.6;
     margin-bottom: var(--el-spacing-xs);
     
     &:last-child {
@@ -2709,198 +2750,82 @@ watch(() => props.editingCommand, (newCommand) => {
     }
     
     code {
-      background: var(--el-fill-color);
-      padding: 2px 4px;
+      padding: 2px 6px;
+      background: var(--el-color-success-light-8);
       border-radius: var(--el-border-radius-small);
-      font-family: var(--el-font-family-monospace);
+      font-family: var(--el-font-family-mono);
+      color: var(--el-color-success-dark-2);
     }
   }
 }
 
-.detected-params {
-  margin-bottom: var(--el-spacing-md);
-  padding: var(--el-spacing-md);
-  background: var(--el-fill-color-light);
+/* 空状态统一样式 */
+.empty-state {
+  padding: var(--el-spacing-lg);
+  text-align: center;
+  background: var(--el-color-info-light-9);
+  border: 2px dashed var(--el-color-info-light-5);
   border-radius: var(--el-border-radius-base);
+  transition: all var(--el-transition-duration);
   
-  .detected-params-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--el-spacing-sm);
-    font-size: var(--el-font-size-base);
-    font-weight: var(--el-font-weight-primary);
+  &:hover {
+    border-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-9);
   }
   
-  .detected-params-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--el-spacing-xs);
-    
-    .detected-param {
-      cursor: pointer;
-      transition: all 0.2s ease;
-      
-      &:hover {
-        transform: scale(1.05);
-      }
+  .el-empty {
+    .el-empty__description {
+      color: var(--el-text-color-secondary);
+      font-size: var(--el-font-size-small);
     }
   }
 }
 
-// 选项验证提示样式
-.options-validation {
-  margin: var(--el-spacing-md) 0;
-  
-  .validation-message {
-    display: flex;
-    align-items: center;
-    gap: var(--el-spacing-xs);
-    padding: var(--el-spacing-sm);
-    margin-bottom: var(--el-spacing-xs);
-    border-radius: var(--el-border-radius-base);
-    font-size: var(--el-font-size-small);
-    
-    &.error {
-      background: var(--el-color-error-light-9);
-      color: var(--el-color-error);
-      border: 1px solid var(--el-color-error-light-7);
-    }
-    
-    &.warning {
-      background: var(--el-color-warning-light-9);
-      color: var(--el-color-warning-dark-2);
-      border: 1px solid var(--el-color-warning-light-7);
-    }
-    
-    &.info {
-      background: var(--el-color-info-light-9);
-      color: var(--el-color-info-dark-2);
-      border: 1px solid var(--el-color-info-light-7);
-    }
-    
-    .el-icon {
-      font-size: var(--el-font-size-base);
-    }
-  }
-}
-
-// 选项样式
-.options-list {
-  .option-item {
-    margin-bottom: var(--el-spacing-md);
-    
-    .option-header {
-      display: flex;
-      gap: var(--el-spacing-sm);
-      margin-bottom: var(--el-spacing-sm);
-      align-items: flex-end;
-      
-      .option-name-inputs {
-        display: flex;
-        gap: var(--el-spacing-sm);
-        flex: 1;
-        
-        .option-short-input {
-          flex: 0 0 120px;
-        }
-        
-        .option-long-input {
-          flex: 1;
-        }
-      }
-    }
-    
-    .option-body {
-      padding-left: var(--el-spacing-md);
-      
-      .option-parameters {
-        margin-top: var(--el-spacing-md);
-        padding: var(--el-spacing-md);
-        background: var(--el-fill-color-light);
-        border-radius: var(--el-border-radius-base);
-        
-        .option-param-list {
-          .option-param-item {
-            display: flex;
-            gap: var(--el-spacing-sm);
-            margin-bottom: var(--el-spacing-sm);
-            align-items: center;
-            
-            .option-param-name {
-              flex: 0 0 150px;
-            }
-            
-            .option-param-desc {
-              flex: 1;
-            }
-            
-            .option-param-type {
-              flex: 0 0 120px;
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  .add-option-btn {
-    width: 100%;
-    height: var(--el-button-size);
-    border: 2px dashed var(--el-border-color);
-    background: transparent;
-    
-    &:hover {
-      border-color: var(--el-color-primary);
-      color: var(--el-color-primary);
-      background: var(--el-fill-color-light);
-    }
-  }
-}
-
-.parameters-list {
-  .parameter-item {
-    margin-bottom: var(--el-spacing-md);
-    
-    .parameter-header {
-      display: flex;
-      gap: var(--el-spacing-sm);
-      margin-bottom: var(--el-spacing-sm);
-      
-      .param-name-input {
-        flex: 1;
-      }
-    }
-    
-    .parameter-body {
-      padding-left: var(--el-spacing-md);
-    }
-  }
-  
-  .add-param-btn {
-    width: 100%;
-    height: var(--el-button-size);
-    border: 2px dashed var(--el-border-color);
-    background: transparent;
-    
-    &:hover {
-      border-color: var(--el-color-primary);
-      color: var(--el-color-primary);
-      background: var(--el-fill-color-light);
-    }
-  }
-}
-
-.dialog-footer {
+/* 动作按钮容器统一样式 */
+.parameters-actions,
+.option-buttons {
   display: flex;
-  justify-content: flex-end;
   gap: var(--el-spacing-sm);
+  align-items: center;
+  padding: var(--el-spacing-md) 0;
+  border-top: 1px solid var(--el-border-color-lighter);
+  margin-top: var(--el-spacing-lg);
 }
 
-// 响应式设计
+/* 列表项统一样式 */
+.parameter-item,
+.command-example-item,
+.subcommand-item {
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: var(--el-border-radius-base);
+  margin-bottom: var(--el-spacing-md);
+  transition: all var(--el-transition-duration);
+  
+  &:hover {
+    border-color: var(--el-color-primary-light-5);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+/* 响应式设计 */
 @media (max-width: 768px) {
   .form-row {
     flex-direction: column;
+    gap: var(--el-spacing-md);
+  }
+  
+  .form-section {
+    padding: var(--el-spacing-md);
+    margin-bottom: var(--el-spacing-lg);
+  }
+  
+  .command-form {
+    padding: var(--el-spacing-md);
   }
 }
 
