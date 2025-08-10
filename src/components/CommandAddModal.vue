@@ -2057,7 +2057,7 @@ const newOptionForm = ref({
     longName: '',
     description: '',
     type: ParameterType.OPTIONAL,
-  valueType: ParameterValueType.REQUIRED, // 默认必带参数
+  valueType: ParameterValueType.OPTIONAL, // 默认可选参数
     parameters: []
   })
 
@@ -2083,7 +2083,7 @@ const addOption = () => {
     longName: '',
     description: '',
     type: ParameterType.OPTIONAL,        // 默认可选选项
-    valueType: ParameterValueType.REQUIRED, // 默认必带参数
+    valueType: ParameterValueType.OPTIONAL, // 默认可选参数
     commandSeparator: ' ',              // 命令与选项间分隔符，默认空格
     optionSeparator: ' ',               // 选项与参数间分隔符，默认空格
     parameters: []
