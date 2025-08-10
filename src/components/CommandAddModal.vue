@@ -40,26 +40,90 @@
         </div>
 
         <div class="form-group">
-          <label for="base-command" class="form-label">
-            基础命令 <span class="required">*</span>
-            <span v-if="isEditing && getFieldChanges().baseCommand" class="changed-indicator">已修改</span>
+          <label for="main-command" class="form-label">
+            主命令 <span class="required">*</span>
+            <span v-if="isEditing && getFieldChanges().mainCommand" class="changed-indicator">已修改</span>
           </label>
           <el-input
-            id="base-command"
-            v-model="form.baseCommand"
-            placeholder="输入基础命令 (如: git, npm, docker)"
+            id="main-command"
+            v-model="form.mainCommand"
+            placeholder="输入主命令 (如: git, npm, docker)"
             class="command-input"
-            :class="{ 'field-changed': isEditing && getFieldChanges().baseCommand }"
+            :class="{ 'field-changed': isEditing && getFieldChanges().mainCommand }"
           />
           <!-- 显示原始值对比 -->
-          <div v-if="isEditing && getFieldChanges().baseCommand" class="comparison-info">
+          <div v-if="isEditing && getFieldChanges().mainCommand" class="comparison-info">
             <div class="original-value">
               <span class="label">原始值:</span>
-              <span class="original-text">{{ originalData.baseCommand || '无' }}</span>
+              <span class="original-text">{{ originalData.mainCommand || '无' }}</span>
               <el-button 
                 type="text" 
                 size="small" 
-                @click="restoreField('baseCommand')"
+                @click="restoreField('mainCommand')"
+                class="restore-btn"
+                title="恢复到原始值"
+              >
+                ↺ 恢复
+              </el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 子命令管理 -->
+        <div class="form-section">
+          <h3 class="section-title">
+            子命令
+            <span v-if="isEditing && getFieldChanges().subcommands" class="changed-indicator">已修改</span>
+          </h3>
+          <div class="subcommands-container">
+            <div 
+              v-for="(subcommand, index) in form.subcommands" 
+              :key="index" 
+              class="subcommand-item"
+            >
+              <div class="subcommand-form">
+                <el-input
+                  v-model="subcommand.name"
+                  placeholder="子命令名 (如: add, commit, push)"
+                  class="subcommand-name"
+                />
+                <el-input
+                  v-model="subcommand.description"
+                  placeholder="子命令描述（可选）"
+                  class="subcommand-description"
+                />
+                <el-radio-group v-model="subcommand.type" class="subcommand-type">
+                  <el-radio :value="ParameterType.REQUIRED">必选</el-radio>
+                  <el-radio :value="ParameterType.OPTIONAL">可选</el-radio>
+                </el-radio-group>
+                <el-button
+                  type="danger"
+                  text
+                  @click="removeSubcommand(index)"
+                  title="删除子命令"
+                >
+                  ×
+                </el-button>
+              </div>
+            </div>
+            <el-button
+              type="primary"
+              text
+              @click="addSubcommand"
+              icon="Plus"
+            >
+              + 添加子命令
+            </el-button>
+          </div>
+          <!-- 显示原始子命令对比 -->
+          <div v-if="isEditing && getFieldChanges().subcommands" class="comparison-info">
+            <div class="original-value">
+              <span class="label">原始子命令:</span>
+              <div class="original-subcommands">{{ getOriginalSubcommandsDisplay() }}</div>
+              <el-button 
+                type="text" 
+                size="small" 
+                @click="restoreField('subcommands')"
                 class="restore-btn"
                 title="恢复到原始值"
               >
@@ -1366,7 +1430,8 @@ const categoryStatus = computed(() => {
 // 表单数据
 const form = ref({
   commandName: '', // 命令名称
-  baseCommand: '', // 基础命令
+  mainCommand: '', // 主命令
+  subcommands: [], // 子命令列表
   command: '', // 完整命令模板
   description: '',
   usage: '',
@@ -1508,7 +1573,8 @@ const generateCommandName = (command) => {
 const resetForm = () => {
   form.value = {
     commandName: '',
-    baseCommand: '',
+    mainCommand: '',
+    subcommands: [],
     command: '',
     description: '',
     usage: '',
@@ -1538,7 +1604,8 @@ const saveCommand = async () => {
   const commandData = {
     name: form.value.commandName.trim() || generateCommandName(form.value.command.trim()),
     commandName: form.value.commandName.trim(),
-    baseCommand: form.value.baseCommand.trim(),
+    mainCommand: form.value.mainCommand.trim(),
+    subcommands: form.value.subcommands.filter(s => s.name.trim()), // 过滤空子命令
     description: form.value.description.trim(),
     usage: form.value.usage.trim(),
     command: form.value.command.trim(),
@@ -1572,6 +1639,10 @@ const saveCommand = async () => {
 }
 
 const validateForm = () => {
+  if (!form.value.mainCommand.trim()) {
+    ElMessage.warning('请输入主命令')
+    return false
+  }
   if (!form.value.command.trim()) {
     ElMessage.warning('请输入命令')
     return false
@@ -1738,7 +1809,8 @@ const getFieldChanges = () => {
   
   return {
     commandName: original.commandName !== current.commandName,
-    baseCommand: original.baseCommand !== current.baseCommand,
+    mainCommand: original.mainCommand !== current.mainCommand,
+    subcommands: JSON.stringify(original.subcommands) !== JSON.stringify(current.subcommands),
     command: original.command !== current.command,
     description: original.description !== current.description,
     usage: original.usage !== current.usage,
@@ -1794,8 +1866,12 @@ const restoreField = (fieldName) => {
     case 'commandName':
       form.value.commandName = originalData.value.commandName
       break
-    case 'baseCommand':
-      form.value.baseCommand = originalData.value.baseCommand
+    case 'mainCommand':
+      form.value.mainCommand = originalData.value.mainCommand
+      break
+    case 'subcommands':
+      form.value.subcommands = originalData.value.subcommands ? 
+        originalData.value.subcommands.map(sub => ({ ...sub })) : []
       break
     case 'command':
       form.value.command = originalData.value.command
@@ -1843,6 +1919,8 @@ const restoreField = (fieldName) => {
 const getFieldDisplayName = (fieldName) => {
   const fieldNames = {
     commandName: '命令名',
+    mainCommand: '主命令',
+    subcommands: '子命令',
     command: '完整命令',
     description: '作用描述',
     usage: '使用说明',
@@ -1916,6 +1994,16 @@ const getOriginalCommonCommandsDisplay = () => {
   return originalData.value.commonCommands.map(cmd => {
     return `${cmd.name}:\n${cmd.command}\n${cmd.description || '无说明'}`
   }).join('\n\n')
+}
+
+// 获取原始子命令显示
+const getOriginalSubcommandsDisplay = () => {
+  if (!originalData.value || !originalData.value.subcommands || originalData.value.subcommands.length === 0) return '无子命令'
+  
+  return originalData.value.subcommands.map(sub => {
+    const typeText = sub.type === ParameterType.REQUIRED ? '必选' : '可选'
+    return `${sub.name} (${typeText}) - ${sub.description || '无描述'}`
+  }).join('\n')
 }
 
 
@@ -2505,7 +2593,21 @@ const removeOption = (index) => {
   form.value.options.splice(index, 1)
 }
 
+// 子命令管理
+const addSubcommand = () => {
+  if (!form.value.subcommands) {
+    form.value.subcommands = []
+  }
+  form.value.subcommands.push({
+    name: '',
+    description: '',
+    type: ParameterType.OPTIONAL
+  })
+}
 
+const removeSubcommand = (index) => {
+  form.value.subcommands.splice(index, 1)
+}
 
 // 常用参数管理
 const addCommonParam = () => {
@@ -2594,7 +2696,8 @@ watch(() => props.editingCommand, (newCommand) => {
   if (newCommand) {
     const commandData = {
       commandName: newCommand.commandName || newCommand.name || '',
-      baseCommand: newCommand.baseCommand || '',
+      mainCommand: newCommand.mainCommand || newCommand.baseCommand || '', // 兼容旧数据
+      subcommands: newCommand.subcommands ? [...newCommand.subcommands] : [],
       command: newCommand.command,
       description: newCommand.description,
       usage: newCommand.usage || '',
@@ -3508,6 +3611,52 @@ watch(() => props.editingCommand, (newCommand) => {
     .default-tag {
       margin-left: var(--el-spacing-xs);
       font-size: var(--el-font-size-extra-small);
+    }
+  }
+}
+
+// 子命令样式
+.subcommands-container {
+  .subcommand-item {
+    margin-bottom: var(--el-spacing-md);
+    
+    .subcommand-form {
+      display: flex;
+      align-items: center;
+      gap: var(--el-spacing-sm);
+      padding: var(--el-spacing-md);
+      border: 1px solid var(--el-border-color-light);
+      border-radius: var(--el-border-radius-base);
+      background: var(--el-fill-color-extra-light);
+      
+      .subcommand-name {
+        flex: 0 0 200px;
+      }
+      
+      .subcommand-description {
+        flex: 1;
+      }
+      
+      .subcommand-type {
+        flex: 0 0 160px;
+        
+        :deep(.el-radio-group) {
+          display: flex;
+          gap: var(--el-spacing-sm);
+          
+          .el-radio {
+            margin-right: 0;
+            font-size: var(--el-font-size-small);
+            
+            &.is-checked {
+              .el-radio__label {
+                color: var(--el-color-primary);
+                font-weight: 600;
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
