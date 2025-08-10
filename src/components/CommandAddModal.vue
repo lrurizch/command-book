@@ -966,30 +966,81 @@
             :key="`new-param-${index}`"
             class="param-item"
           >
-            <el-input
-              v-model="param.name"
-              placeholder="参数"
-              class="param-name"
-            />
-            <el-input
-              v-model="param.description"
-              placeholder="参数描述"
-              class="param-desc"
-            />
-            <el-checkbox 
-              :model-value="defaultOptionParam === index"
-              @change="(checked) => handleDefaultOptionParamChange(index, checked)"
-              class="param-default"
-            >
-              默认参数
-            </el-checkbox>
-            <el-button
-              type="danger"
-              size="small"
-              @click="removeNewOptionParameter(index)"
-              icon="Delete"
-            >
-            </el-button>
+            <div class="param-header">
+              <el-input
+                v-model="param.name"
+                placeholder="参数名称"
+                class="param-name"
+              />
+              <el-input
+                v-model="param.value"
+                placeholder="参数值"
+                class="param-value"
+              />
+              <el-button
+                type="danger"
+                size="small"
+                @click="removeNewOptionParameter(index)"
+                icon="Delete"
+              >
+              </el-button>
+            </div>
+            
+            <div class="param-values-section">
+              <div class="common-values">
+                <label class="values-label">常用参数值：</label>
+                <div class="values-list">
+                  <div 
+                    v-for="(commonValue, valueIndex) in param.commonValues"
+                    :key="`common-value-${index}-${valueIndex}`"
+                    class="value-item"
+                  >
+                    <el-input
+                      v-model="param.commonValues[valueIndex]"
+                      placeholder="常用值"
+                      size="small"
+                      class="value-input"
+                    />
+                    <el-button
+                      type="text"
+                      size="small"
+                      @click="removeOptionCommonValue(index, valueIndex)"
+                      icon="Close"
+                      class="remove-value-btn"
+                    >
+                    </el-button>
+                  </div>
+                  <el-button
+                    type="primary"
+                    size="small"
+                    @click="addOptionCommonValue(index)"
+                    icon="Plus"
+                    plain
+                    class="add-value-btn"
+                  >
+                    添加常用值
+                  </el-button>
+                </div>
+              </div>
+              
+              <div class="default-value">
+                <label class="values-label">默认参数值：</label>
+                <el-select
+                  v-model="param.defaultValue"
+                  placeholder="选择默认值（可选）"
+                  clearable
+                  size="small"
+                  class="default-value-select"
+                >
+                  <el-option
+                    v-for="commonValue in param.commonValues"
+                    :key="commonValue"
+                    :label="commonValue"
+                    :value="commonValue"
+                  />
+                </el-select>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -2180,8 +2231,10 @@ const addNewOptionParameter = () => {
     newOptionForm.value.parameters = []
   }
   newOptionForm.value.parameters.push({
-    name: '',
-    description: ''
+    name: '',           // 参数名称
+    value: '',          // 参数值
+    commonValues: [],   // 常用参数值数组
+    defaultValue: ''    // 默认参数值
   })
 }
 
@@ -2193,6 +2246,27 @@ const removeNewOptionParameter = (index) => {
     defaultOptionParam.value = null
   } else if (defaultOptionParam.value > index) {
     defaultOptionParam.value -= 1
+  }
+}
+
+// 选项参数的常用值管理
+const addOptionCommonValue = (paramIndex) => {
+  if (!newOptionForm.value.parameters[paramIndex].commonValues) {
+    newOptionForm.value.parameters[paramIndex].commonValues = []
+  }
+  newOptionForm.value.parameters[paramIndex].commonValues.push('')
+}
+
+const removeOptionCommonValue = (paramIndex, valueIndex) => {
+  const param = newOptionForm.value.parameters[paramIndex]
+  const removedValue = param.commonValues[valueIndex]
+  
+  // 删除常用值
+  param.commonValues.splice(valueIndex, 1)
+  
+  // 如果删除的值是默认值，清空默认值选择
+  if (param.defaultValue === removedValue) {
+    param.defaultValue = ''
   }
 }
 
@@ -3472,24 +3546,70 @@ watch(() => props.editingCommand, (newCommand) => {
   .params-list {
     margin-bottom: var(--el-spacing-md);
     
-      .param-item {
-    display: flex;
-    align-items: center;
-    gap: var(--el-spacing-sm);
-    margin-bottom: var(--el-spacing-sm);
-    
-    .param-name {
-      flex: 0 0 120px;
+    .param-item {
+      border: 1px solid var(--el-border-color-lighter);
+      border-radius: var(--el-border-radius-base);
+      padding: var(--el-spacing-md);
+      margin-bottom: var(--el-spacing-md);
+      background: var(--el-bg-color);
+      
+      .param-header {
+        display: flex;
+        align-items: center;
+        gap: var(--el-spacing-sm);
+        margin-bottom: var(--el-spacing-md);
+        
+        .param-name {
+          flex: 0 0 150px;
+        }
+        
+        .param-value {
+          flex: 1;
+        }
+      }
+      
+      .param-values-section {
+        .common-values,
+        .default-value {
+          margin-bottom: var(--el-spacing-md);
+          
+          .values-label {
+            display: block;
+            font-size: var(--el-font-size-small);
+            font-weight: 600;
+            color: var(--el-text-color-regular);
+            margin-bottom: var(--el-spacing-xs);
+          }
+        }
+        
+        .values-list {
+          .value-item {
+            display: flex;
+            align-items: center;
+            gap: var(--el-spacing-xs);
+            margin-bottom: var(--el-spacing-xs);
+            
+            .value-input {
+              flex: 1;
+            }
+            
+            .remove-value-btn {
+              flex-shrink: 0;
+              padding: 4px;
+              min-height: auto;
+            }
+          }
+          
+          .add-value-btn {
+            margin-top: var(--el-spacing-xs);
+          }
+        }
+        
+        .default-value-select {
+          width: 200px;
+        }
+      }
     }
-    
-    .param-desc {
-      flex: 1;
-    }
-    
-    .param-default {
-      flex: 0 0 80px;
-    }
-  }
   }
   
 
