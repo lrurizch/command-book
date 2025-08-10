@@ -623,62 +623,136 @@
 
 
 
-      <!-- 分隔符/运算符 -->
+      <!-- 符号 -->
       <div class="form-section">
         <h3 class="section-title">
-          分隔符/运算符
-          <span v-if="isEditing && getFieldChanges().separators" class="changed-indicator">已修改</span>
+          符号
+          <span v-if="isEditing && getFieldChanges().symbols" class="changed-indicator">已修改</span>
         </h3>
-        <div class="separators-container">
+        <div class="symbols-container">
           <div 
-            v-for="(separator, index) in form.separators" 
+            v-for="(symbol, index) in form.symbols" 
             :key="index" 
-            class="separator-item"
+            class="symbol-item"
           >
-            <div class="separator-form">
+            <div class="symbol-form">
+              <!-- 符号分类选择 -->
+              <el-select
+                v-model="symbol.category"
+                placeholder="选择符号分类"
+                class="symbol-category"
+                @change="onSymbolCategoryChange(index)"
+              >
+                <el-option
+                  v-for="category in symbolCategories"
+                  :key="category.value"
+                  :label="category.label"
+                  :value="category.value"
+                >
+                  <span style="float: left">{{ category.label }}</span>
+                  <span style="float: right; color: var(--el-text-color-secondary); font-size: 13px">
+                    {{ category.description }}
+                  </span>
+                </el-option>
+              </el-select>
+              
+              <!-- 具体符号选择 -->
+              <el-select
+                v-model="symbol.symbol"
+                placeholder="选择符号"
+                class="symbol-select"
+                :disabled="!symbol.category"
+                filterable
+                allow-create
+              >
+                <el-option
+                  v-for="symbolOption in getSymbolsByCategory(symbol.category)"
+                  :key="symbolOption.symbol"
+                  :label="`${symbolOption.symbol} - ${symbolOption.name}`"
+                  :value="symbolOption.symbol"
+                >
+                  <div class="symbol-option">
+                    <span class="symbol-text">{{ symbolOption.symbol }}</span>
+                    <span class="symbol-name">{{ symbolOption.name }}</span>
+                    <div class="symbol-desc">{{ symbolOption.description }}</div>
+                  </div>
+                </el-option>
+              </el-select>
+              
+              <!-- 自定义用途说明 -->
               <el-input
-                v-model="separator.symbol"
-                placeholder="分隔符 (如: |, &&, ||, >, >>, <)"
-                class="separator-symbol"
+                v-model="symbol.customDescription"
+                placeholder="自定义用途说明（可选）"
+                class="symbol-custom-desc"
               />
+              
+              <!-- 使用示例 -->
               <el-input
-                v-model="separator.description"
-                placeholder="用途说明"
-                class="separator-description"
-              />
-              <el-input
-                v-model="separator.example"
+                v-model="symbol.example"
                 placeholder="使用示例"
-                class="separator-example"
+                class="symbol-example"
               />
+              
               <el-button
                 type="danger"
                 text
-                @click="removeSeparator(index)"
-                title="删除分隔符"
+                @click="removeSymbol(index)"
+                title="删除符号"
               >
                 ×
               </el-button>
             </div>
           </div>
-          <el-button
-            type="primary"
-            text
-            @click="addSeparator"
-            icon="Plus"
-          >
-            + 添加分隔符
-          </el-button>
+          
+          <!-- 空状态 -->
+          <div v-if="form.symbols.length === 0" class="empty-state">
+            <div class="empty-content">
+              <el-empty description="暂无符号" :image-size="60" />
+            </div>
+            <div class="symbols-actions">
+              <el-button
+                type="primary"
+                text
+                @click="addSymbol"
+                icon="Plus"
+              >
+                + 添加第一个符号
+              </el-button>
+            </div>
+          </div>
+          
+          <!-- 添加符号按钮 -->
+          <div v-if="form.symbols.length > 0" class="symbols-actions">
+            <el-button
+              type="primary"
+              text
+              @click="addSymbol"
+              icon="Plus"
+            >
+              + 添加符号
+            </el-button>
+          </div>
         </div>
-        <!-- 显示原始分隔符对比 -->
-        <div v-if="isEditing && getFieldChanges().separators" class="comparison-info">
+        
+        <!-- 符号分类说明 -->
+        <div class="symbol-help">
+          <div class="help-item">
+            💡 提示: 符号按功能分类，方便选择合适的符号组合命令
+          </div>
+          <div class="help-item">
+            📝 分类: <code>管道</code>、<code>重定向</code>、<code>逻辑</code>、<code>后台</code>、<code>分组</code>、<code>通配符</code>
+          </div>
+        </div>
+        
+        <!-- 显示原始符号对比 -->
+        <div v-if="isEditing && getFieldChanges().symbols" class="comparison-info">
           <div class="original-value">
-            <span class="label">原始分隔符:</span>
-            <div class="original-separators">{{ getOriginalSeparatorsDisplay() }}</div>
+            <span class="label">原始符号:</span>
+            <div class="original-symbols">{{ getOriginalSymbolsDisplay() }}</div>
             <el-button 
               type="text" 
               size="small" 
-              @click="restoreField('separators')"
+              @click="restoreField('symbols')"
               class="restore-btn"
               title="恢复到原始值"
             >
@@ -687,10 +761,6 @@
           </div>
         </div>
       </div>
-
-
-
-      <!-- 旧的命令参数板块已删除 -->
     </div>
 
     <template #footer>
@@ -1285,6 +1355,96 @@ const categoryStatus = computed(() => {
   }
 })
 
+// 符号分类数据
+const symbolCategories = ref([
+  {
+    value: 'pipe',
+    label: '管道符号',
+    description: '数据传输'
+  },
+  {
+    value: 'redirect',
+    label: '重定向符号',
+    description: '输入输出重定向'
+  },
+  {
+    value: 'logic',
+    label: '逻辑符号',
+    description: '逻辑运算'
+  },
+  {
+    value: 'background',
+    label: '后台符号',
+    description: '后台执行'
+  },
+  {
+    value: 'grouping',
+    label: '分组符号',
+    description: '命令分组'
+  },
+  {
+    value: 'wildcard',
+    label: '通配符号',
+    description: '模式匹配'
+  },
+  {
+    value: 'separator',
+    label: '分隔符号',
+    description: '参数分隔'
+  }
+])
+
+// 各分类下的具体符号
+const symbolsByCategory = ref({
+  pipe: [
+    { symbol: '|', name: '管道', description: '将前一个命令的输出作为后一个命令的输入' },
+    { symbol: '|&', name: '错误管道', description: '同时传递标准输出和标准错误' },
+    { symbol: 'xargs', name: '参数传递', description: '将输入转换为命令行参数' }
+  ],
+  redirect: [
+    { symbol: '>', name: '输出重定向', description: '将输出重定向到文件（覆盖）' },
+    { symbol: '>>', name: '追加重定向', description: '将输出追加到文件末尾' },
+    { symbol: '<', name: '输入重定向', description: '从文件读取输入' },
+    { symbol: '<<', name: 'Here文档', description: '内嵌文档输入' },
+    { symbol: '2>', name: '错误重定向', description: '重定向标准错误到文件' },
+    { symbol: '2>>', name: '错误追加', description: '追加标准错误到文件' },
+    { symbol: '&>', name: '全部重定向', description: '重定向标准输出和错误' },
+    { symbol: '2>&1', name: '错误合并', description: '将标准错误重定向到标准输出' }
+  ],
+  logic: [
+    { symbol: '&&', name: '逻辑与', description: '前一个命令成功才执行后一个' },
+    { symbol: '||', name: '逻辑或', description: '前一个命令失败才执行后一个' },
+    { symbol: ';', name: '顺序执行', description: '依次执行命令，不考虑成败' },
+    { symbol: '!', name: '逻辑非', description: '取反命令的退出状态' }
+  ],
+  background: [
+    { symbol: '&', name: '后台执行', description: '在后台运行命令' },
+    { symbol: 'nohup', name: '忽略挂起', description: '忽略挂起信号，继续运行' },
+    { symbol: 'disown', name: '脱离控制', description: '将作业从作业表中移除' }
+  ],
+  grouping: [
+    { symbol: '()', name: '子shell分组', description: '在子shell中执行命令组' },
+    { symbol: '{}', name: '当前shell分组', description: '在当前shell中执行命令组' },
+    { symbol: '[]', name: '条件测试', description: '条件测试表达式' },
+    { symbol: '[[]]', name: '扩展测试', description: '扩展的条件测试' }
+  ],
+  wildcard: [
+    { symbol: '*', name: '任意字符', description: '匹配任意数量的任意字符' },
+    { symbol: '?', name: '单个字符', description: '匹配单个任意字符' },
+    { symbol: '[...]', name: '字符集', description: '匹配字符集中的任意一个字符' },
+    { symbol: '{...}', name: '大括号扩展', description: '大括号扩展模式' },
+    { symbol: '~', name: '主目录', description: '用户主目录路径' }
+  ],
+  separator: [
+    { symbol: ' ', name: '空格', description: '默认参数分隔符' },
+    { symbol: '=', name: '等号', description: '键值对分隔符' },
+    { symbol: ':', name: '冒号', description: '路径或配置分隔符' },
+    { symbol: ',', name: '逗号', description: '列表项分隔符' },
+    { symbol: '-', name: '连字符', description: '选项前缀或范围分隔符' },
+    { symbol: '--', name: '双连字符', description: '长选项前缀' }
+  ]
+})
+
 // 表单数据
 const form = ref({
   commandName: '', // 命令名称
@@ -1300,7 +1460,7 @@ const form = ref({
   mutexGroups: [], // 互斥选项组
   // 已删除常用参数字段
   commonCommands: [], // 常用完整命令
-  separators: [] // 分隔符/运算符
+  symbols: [] // 符号（替代原来的separators）
 })
 
 const detectedParameters = ref([])
@@ -1475,8 +1635,9 @@ const resetForm = () => {
     options: [],
     // commonParameters已删除
     commonCommands: [],
-    separators: [],
-    commandParameterSeparator: ' '  // 命令与参数间分隔符，默认空格
+    symbols: [],
+    commandParameterSeparator: ' ',  // 命令与参数间分隔符，默认空格
+    symbols: [] // 符号
   }
   detectedParameters.value = []
 }
@@ -1554,7 +1715,7 @@ const saveCommand = async () => {
     options: form.value.options.filter(o => o.shortName.trim() || o.longName.trim()), // 过滤空选项
     // commonParameters已删除
     commonCommands: form.value.commonCommands.filter(c => c.name.trim()), // 过滤空常用命令
-    separators: form.value.separators.filter(s => s.symbol.trim()) // 过滤空分隔符
+    symbols: form.value.symbols.filter(s => s.symbol.trim()) // 过滤空符号
   }
 
   try {
@@ -1733,7 +1894,7 @@ const hasChanges = computed(() => {
     JSON.stringify(original.options) !== JSON.stringify(current.options) ||
     // commonParameters已删除
     JSON.stringify(original.commonCommands) !== JSON.stringify(current.commonCommands) ||
-    JSON.stringify(original.separators) !== JSON.stringify(current.separators)
+          JSON.stringify(original.symbols) !== JSON.stringify(current.symbols)
   )
 })
 
@@ -1757,7 +1918,7 @@ const getFieldChanges = () => {
     options: JSON.stringify(original.options) !== JSON.stringify(current.options),
     // commonParameters已删除
     commonCommands: JSON.stringify(original.commonCommands) !== JSON.stringify(current.commonCommands),
-    separators: JSON.stringify(original.separators) !== JSON.stringify(current.separators)
+          symbols: JSON.stringify(original.symbols) !== JSON.stringify(current.symbols)
   }
 }
 
@@ -1839,9 +2000,13 @@ const restoreField = (fieldName) => {
       form.value.commonCommands = originalData.value.commonCommands ? 
         originalData.value.commonCommands.map(cmd => ({ ...cmd })) : []
       break
-    case 'separators':
-      form.value.separators = originalData.value.separators ? 
-        originalData.value.separators.map(sep => ({ ...sep })) : []
+          case 'symbols':
+        form.value.symbols = originalData.value.symbols ?
+          originalData.value.symbols.map(sym => ({ ...sym })) : []
+      break
+    case 'symbols':
+      form.value.symbols = originalData.value.symbols ? 
+        originalData.value.symbols.map(symbol => ({ ...symbol })) : []
       break
   }
   
@@ -1864,7 +2029,8 @@ const getFieldDisplayName = (fieldName) => {
     options: '命令选项',
     // commonParameters已删除
     commonCommands: '常用命令',
-    separators: '分隔符/运算符'
+    symbols: '符号',
+    symbols: '符号'
   }
   return fieldNames[fieldName] || fieldName
 }
@@ -2449,28 +2615,54 @@ const handleDefaultChange = (index, isDefault) => {
   }
 }
 
-// 分隔符管理
-const addSeparator = () => {
-  if (!form.value.separators) {
-    form.value.separators = []
+// 符号管理
+const addSymbol = () => {
+  if (!form.value.symbols) {
+    form.value.symbols = []
   }
-  form.value.separators.push({
+  form.value.symbols.push({
+    category: '',
     symbol: '',
-    description: '',
+    customDescription: '',
     example: ''
   })
 }
 
-const removeSeparator = (index) => {
-  form.value.separators.splice(index, 1)
+const removeSymbol = (index) => {
+  form.value.symbols.splice(index, 1)
 }
 
-// 获取原始分隔符显示
-const getOriginalSeparatorsDisplay = () => {
-  if (!originalData.value || !originalData.value.separators || originalData.value.separators.length === 0) return '无分隔符'
+// 根据分类获取符号列表
+const getSymbolsByCategory = (category) => {
+  if (!category) return []
+  return symbolsByCategory.value[category] || []
+}
+
+// 符号分类变化处理
+const onSymbolCategoryChange = (index) => {
+  // 清空符号选择，让用户重新选择
+  if (form.value.symbols[index]) {
+    form.value.symbols[index].symbol = ''
+  }
+}
+
+// 获取原始符号显示
+const getOriginalSymbolsDisplay = () => {
+  if (!originalData.value || !originalData.value.symbols || originalData.value.symbols.length === 0) {
+    // 兼容旧的separators字段
+    if (originalData.value && originalData.value.separators && originalData.value.separators.length > 0) {
+      return originalData.value.separators.map(sep => {
+        return `${sep.symbol}: ${sep.description || '无说明'} (示例: ${sep.example || '无'})`
+      }).join('\n')
+    }
+    return '无符号'
+  }
   
-  return originalData.value.separators.map(sep => {
-    return `${sep.symbol}: ${sep.description || '无说明'} (示例: ${sep.example || '无'})`
+  return originalData.value.symbols.map(symbol => {
+    const categoryLabel = symbolCategories.value.find(cat => cat.value === symbol.category)?.label || symbol.category
+    const description = symbol.customDescription || 
+      getSymbolsByCategory(symbol.category).find(s => s.symbol === symbol.symbol)?.description || '无说明'
+    return `[${categoryLabel}] ${symbol.symbol}: ${description} (示例: ${symbol.example || '无'})`
   }).join('\n')
 }
 
@@ -2495,8 +2687,8 @@ watch(() => props.editingCommand, (newCommand) => {
       options: newCommand.options ? [...newCommand.options] : [],
       // commonParameters已删除
       commonCommands: newCommand.commonCommands ? [...newCommand.commonCommands] : [],
-      separators: newCommand.separators ? [...newCommand.separators] : [],
-      commandParameterSeparator: newCommand.commandParameterSeparator || ' '  // 确保有默认值
+              symbols: newCommand.symbols ? [...newCommand.symbols] : [],
+        commandParameterSeparator: newCommand.commandParameterSeparator || ' '  // 确保有默认值
     }
     
     form.value = { ...commandData }
@@ -2677,7 +2869,8 @@ watch(() => props.editingCommand, (newCommand) => {
     
     .original-text,
     .original-common-commands,
-    .original-subcommands {
+    .original-subcommands,
+    .original-symbols {
       flex: 1;
       font-size: var(--el-font-size-small);
       color: var(--el-text-color-regular);
@@ -3650,5 +3843,129 @@ watch(() => props.editingCommand, (newCommand) => {
        }
      }
    }
+}
+
+// 符号样式
+.symbols-container {
+  .symbol-item {
+    margin-bottom: var(--el-spacing-md);
+    
+    .symbol-form {
+      display: flex;
+      flex-direction: column;
+      gap: var(--el-spacing-sm);
+      padding: var(--el-spacing-md);
+      border: 1px solid var(--el-border-color-light);
+      border-radius: var(--el-border-radius-base);
+      background: var(--el-fill-color-extra-light);
+      
+      .symbol-category {
+        flex: 1;
+      }
+      
+      .symbol-select {
+        flex: 1;
+      }
+      
+      .symbol-custom-desc {
+        flex: 1;
+      }
+      
+      .symbol-example {
+        flex: 1;
+      }
+    }
+  }
+  
+  .empty-state {
+    padding: var(--el-spacing-lg);
+    text-align: center;
+    background: var(--el-color-info-light-9);
+    border: 2px dashed var(--el-color-info-light-5);
+    border-radius: var(--el-border-radius-base);
+    transition: all var(--el-transition-duration);
+    
+    &:hover {
+      border-color: var(--el-color-primary-light-5);
+      background: var(--el-color-primary-light-9);
+    }
+    
+    .empty-content {
+      .el-empty {
+        .el-empty__description {
+          color: var(--el-text-color-secondary);
+          font-size: var(--el-font-size-small);
+        }
+      }
+    }
+    
+    .symbols-actions {
+      display: flex;
+      gap: var(--el-spacing-sm);
+      align-items: center;
+      padding: var(--el-spacing-md) 0;
+      border-top: 1px solid var(--el-border-color-lighter);
+      margin-top: var(--el-spacing-lg);
+    }
+  }
+}
+
+  .symbols-actions {
+    display: flex;
+    gap: var(--el-spacing-sm);
+    align-items: center;
+    padding: var(--el-spacing-md) 0;
+    border-top: 1px solid var(--el-border-color-lighter);
+    margin-top: var(--el-spacing-lg);
+  }
+}
+
+// 符号选项样式
+.symbol-option {
+  .symbol-text {
+    font-family: var(--el-font-family-mono);
+    font-weight: bold;
+    color: var(--el-color-primary);
+    margin-right: var(--el-spacing-sm);
+  }
+  
+  .symbol-name {
+    color: var(--el-text-color-primary);
+    margin-right: var(--el-spacing-sm);
+  }
+  
+  .symbol-desc {
+    font-size: var(--el-font-size-small);
+    color: var(--el-text-color-secondary);
+    margin-top: var(--el-spacing-xs);
+  }
+}
+
+// 符号分类说明样式
+.symbol-help {
+  margin-top: var(--el-spacing-xs);
+  padding: var(--el-spacing-xs) var(--el-spacing-sm);
+  background: var(--el-color-info-light-9);
+  border: 1px solid var(--el-color-info-light-7);
+  border-radius: var(--el-border-radius-small);
+  
+  .help-item {
+    font-size: var(--el-font-size-small);
+    color: var(--el-color-info-dark-2);
+    line-height: 1.6;
+    margin-bottom: var(--el-spacing-xs);
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+    
+    code {
+      padding: 2px 6px;
+      background: var(--el-color-success-light-8);
+      border-radius: var(--el-border-radius-small);
+      font-family: var(--el-font-family-mono);
+      color: var(--el-color-success-dark-2);
+    }
+  }
 }
 </style> 
