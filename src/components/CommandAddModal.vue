@@ -2,11 +2,30 @@
   <el-dialog
     v-model="dialogVisible"
     :title="isEditing ? '修改命令' : '新建命令'"
-    width="60%"
+    width="90%"
     :close-on-click-modal="false"
     @close="handleClose"
+    class="command-add-modal"
   >
-    <div class="command-form">
+    <!-- 模式选择 -->
+    <div class="mode-selector">
+      <el-radio-group v-model="buildMode" @change="onModeChange">
+        <el-radio-button value="simple">简单模式</el-radio-button>
+        <el-radio-button value="template">模板构建器</el-radio-button>
+      </el-radio-group>
+    </div>
+
+    <!-- 模板命令构建器 -->
+    <div v-if="buildMode === 'template'" class="template-builder-container">
+      <CommandBuilder
+        :initial-template="initialTemplate"
+        @template-created="onTemplateCreated"
+        @template-changed="onTemplateChanged"
+      />
+    </div>
+
+    <!-- 传统表单模式 -->
+    <div v-else class="command-form">
       <!-- 基本信息 -->
       <div class="form-section">
         <div class="form-group">
@@ -1237,6 +1256,8 @@ import { ElMessage } from 'element-plus'
 import { InfoFilled, SuccessFilled, WarningFilled, Plus, FolderAdd, CircleCloseFilled } from '@element-plus/icons-vue'
 import { useCommandStore } from '../stores/command'
 import { showSaveSuccess } from '../utils/toast'
+import CommandBuilder from './CommandBuilder.vue'
+import { CommandTemplate } from '../utils/commandBuilder.js'
 
 const props = defineProps({
   modelValue: {
@@ -1258,6 +1279,11 @@ const ParameterType = {
   REQUIRED: 'required',     // 必选参数
   OPTIONAL: 'optional'      // 可选参数  
 }
+
+// 构建模式
+const buildMode = ref('simple')
+const initialTemplate = ref(null)
+const templateCommand = ref(null)
 
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -1590,12 +1616,100 @@ const resetForm = () => {
   detectedParameters.value = []
 }
 
+// 新增方法：处理模式切换
+const onModeChange = () => {
+  if (buildMode.value === 'template') {
+    // 切换到模板构建器时，从当前表单数据创建初始模板
+    createInitialTemplate()
+  }
+}
+
+const createInitialTemplate = () => {
+  if (form.value) {
+    const template = new CommandTemplate({
+      name: form.value.mainCommand || '',
+      category: form.value.category || 'custom',
+      tags: form.value.tags || []
+    })
+    
+    // 添加已有的子命令
+    if (form.value.subcommands) {
+      form.value.subcommands.forEach(sub => {
+        template.addSubcommand({
+          name: sub.name,
+          description: sub.description || ''
+        })
+      })
+    }
+    
+    // 添加已有的选项
+    if (form.value.options) {
+      form.value.options.forEach(opt => {
+        template.addOption({
+          name: opt.name,
+          shortFlag: opt.shortFlag || '',
+          longFlag: opt.longFlag || '',
+          description: opt.description || ''
+        })
+      })
+    }
+    
+    initialTemplate.value = template.toConfig()
+  }
+}
+
+// 模板相关的事件处理
+const onTemplateCreated = (templateData) => {
+  templateCommand.value = templateData
+  console.log('模板创建成功:', templateData)
+}
+
+const onTemplateChanged = (templateData) => {
+  templateCommand.value = templateData
+  console.log('模板已更改:', templateData)
+}
+
+// 已移除旧的通用构建器相关函数，使用新的模板构建器
+
 const handleClose = () => {
   dialogVisible.value = false
   resetForm()
 }
 
 const saveCommand = async () => {
+  // 模板构建器模式
+  if (buildMode.value === 'template' && templateCommand.value) {
+    try {
+      const commandData = {
+        id: isEditing.value ? props.editingCommand.id : undefined,
+        name: templateCommand.value.name,
+        description: `${templateCommand.value.name} 命令模板`,
+        category: templateCommand.value.category,
+        tags: templateCommand.value.tags,
+        templateData: templateCommand.value,
+        isUserCreated: true,
+        isSystemExample: false,
+        created: isEditing.value ? props.editingCommand.created : new Date(),
+        updated: new Date()
+      }
+      
+      if (isEditing.value) {
+        commandStore.updateCommand(props.editingCommand.id, commandData)
+        showSaveSuccess(commandData.name, true)
+      } else {
+        commandStore.addCommand(commandData)
+        showSaveSuccess(commandData.name, false)
+      }
+      
+      emit('saved')
+      return commandData
+    } catch (error) {
+      ElMessage.error(error.message)
+      throw error
+    }
+  }
+
+  // 传统模式
   // 如果分类是新的（不存在），先创建分类
   if (form.value.category && !categoryStatus.value.exists) {
     await handleCreateCategory(form.value.category)
@@ -1639,6 +1753,23 @@ const saveCommand = async () => {
 }
 
 const validateForm = () => {
+  // 模板构建器模式的验证
+  if (buildMode.value === 'template') {
+    if (!templateCommand.value) {
+      ElMessage.warning('请先构建模板')
+      return false
+    }
+    
+    // 检查模板是否有效
+    if (!templateCommand.value.name || !templateCommand.value.name.trim()) {
+      ElMessage.warning('请输入模板名称')
+      return false
+    }
+    
+    return true
+  }
+  
+  // 传统模式的验证
   if (!form.value.mainCommand.trim()) {
     ElMessage.warning('请输入主命令')
     return false
@@ -2722,6 +2853,26 @@ watch(() => props.editingCommand, (newCommand) => {
 </script>
 
 <style lang="scss" scoped>
+.command-add-modal {
+  .mode-selector {
+    margin-bottom: var(--el-spacing-lg);
+    text-align: center;
+    padding: var(--el-spacing-md);
+    background: var(--el-fill-color-extra-light);
+    border-radius: var(--el-border-radius-base);
+  }
+
+  .universal-builder-container {
+    padding: var(--el-spacing-md);
+    background: var(--el-fill-color-blank);
+    border-radius: var(--el-border-radius-base);
+    border: 1px solid var(--el-border-color-light);
+  }
+
+  :deep(.el-dialog__body) {
+    padding: var(--el-spacing-lg);
+  }
+}
 .command-form {
   padding: var(--el-dialog-padding-primary);
 }

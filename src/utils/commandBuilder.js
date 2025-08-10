@@ -1,823 +1,371 @@
 /**
- * 命令构建工具类
- * 实现完整的命令创建、验证和构建功能
+ * 命令模板构建器 - 主要系统
+ * 只包含必要的字段：名称、子命令、选项、参数、符号、分类、标签、常用完整命令
  */
 
-// 参数类型枚举
+// 参数类型定义
 export const ParameterType = {
+  REQUIRED: 'REQUIRED',
+  OPTIONAL: 'OPTIONAL', 
+  DISABLED: 'DISABLED'
+}
+
+export const DataType = {
   STRING: 'string',
   NUMBER: 'number',
+  INTEGER: 'integer',
+  FLOAT: 'float',
+  BOOLEAN: 'boolean',
   FILE: 'file',
   DIRECTORY: 'directory',
   URL: 'url',
   EMAIL: 'email',
-  BOOLEAN: 'boolean',
-  ENUM: 'enum'
+  ENUM: 'enum',
+  REGEX: 'regex',
+  JSON: 'json',
+  ARRAY: 'array'
 }
 
-// 参数必选级别
-export const ParameterRequirement = {
-  REQUIRED: 'required',     // 必选参数
-  OPTIONAL: 'optional',     // 可选参数
-  NONE: 'none'             // 不需要参数
+// 符号分类定义
+export const SymbolCategory = {
+  PIPE: 'pipe',           // 管道符号
+  REDIRECT: 'redirect',   // 重定向符号
+  LOGIC: 'logic',         // 逻辑操作符
+  BACKGROUND: 'background', // 后台运行
+  GROUPING: 'grouping',   // 分组符号
+  WILDCARD: 'wildcard'    // 通配符
 }
 
-// 分隔符类型
-export const SeparatorType = {
-  PIPE: { symbol: '|', name: '管道符', description: '将前一个命令的输出传递给后一个命令' },
-  AND: { symbol: '&&', name: '逻辑与', description: '前一个命令成功时才执行后一个命令' },
-  OR: { symbol: '||', name: '逻辑或', description: '前一个命令失败时才执行后一个命令' },
-  SEQUENCE: { symbol: ';', name: '顺序执行', description: '按顺序执行命令，不管前一个是否成功' },
-  BACKGROUND: { symbol: '&', name: '后台执行', description: '在后台执行命令' }
+// 预定义符号库
+export const PredefinedSymbols = {
+  [SymbolCategory.PIPE]: [
+    { symbol: '|', name: '管道', description: '将前一个命令的输出作为后一个命令的输入' },
+    { symbol: '|&', name: '错误管道', description: '同时传递标准输出和标准错误' }
+  ],
+  [SymbolCategory.REDIRECT]: [
+    { symbol: '>', name: '输出重定向', description: '将输出重定向到文件（覆盖）' },
+    { symbol: '>>', name: '追加重定向', description: '将输出追加到文件末尾' },
+    { symbol: '<', name: '输入重定向', description: '从文件读取输入' },
+    { symbol: '2>', name: '错误重定向', description: '将错误输出重定向到文件' },
+    { symbol: '&>', name: '全部重定向', description: '将所有输出重定向到文件' }
+  ],
+  [SymbolCategory.LOGIC]: [
+    { symbol: '&&', name: '逻辑与', description: '前一个命令成功后执行后一个命令' },
+    { symbol: '||', name: '逻辑或', description: '前一个命令失败后执行后一个命令' },
+    { symbol: ';', name: '顺序执行', description: '依次执行命令，不管前一个是否成功' }
+  ],
+  [SymbolCategory.BACKGROUND]: [
+    { symbol: '&', name: '后台运行', description: '在后台运行命令' },
+    { symbol: 'nohup', name: '忽略挂起', description: '忽略挂起信号，命令持续运行' }
+  ],
+  [SymbolCategory.GROUPING]: [
+    { symbol: '()', name: '子shell', description: '在子shell中执行命令组' },
+    { symbol: '{}', name: '命令组', description: '在当前shell中执行命令组' }
+  ],
+  [SymbolCategory.WILDCARD]: [
+    { symbol: '*', name: '任意字符', description: '匹配任意数量的字符' },
+    { symbol: '?', name: '单个字符', description: '匹配单个字符' },
+    { symbol: '[]', name: '字符集', description: '匹配方括号内的任意字符' },
+    { symbol: '{}', name: '花括号展开', description: '展开花括号内的模式' }
+  ]
 }
 
-// 验证规则
-export const ValidationRules = {
-  // 文件路径验证
-  FILE_PATH: {
-    pattern: /^[^\s<>:"|?*]+$/,
-    message: '文件路径不能包含特殊字符'
-  },
-  
-  // URL验证
-  URL: {
-    pattern: /^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)$/,
-    message: 'URL格式不正确'
-  },
-  
-  // 邮箱验证
-  EMAIL: {
-    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-    message: '邮箱格式不正确'
-  },
-  
-  // 数字验证
-  NUMBER: {
-    pattern: /^-?\d*\.?\d+$/,
-    message: '必须是有效的数字'
+/**
+ * 命令模板结构
+ */
+export class CommandTemplate {
+  constructor(config = {}) {
+    // 基本信息
+    this.name = config.name || ''
+    this.category = config.category || ''
+    this.tags = config.tags || []
+    
+    // 命令组件（全部可选）
+    this.subcommands = config.subcommands || []
+    this.options = config.options || []
+    this.parameters = config.parameters || []
+    this.symbols = config.symbols || []
+    
+    // 常用完整命令
+    this.commonCommands = config.commonCommands || []
+  }
+
+  // 添加子命令
+  addSubcommand(subcommand) {
+    this.subcommands.push({
+      name: subcommand.name || '',
+      description: subcommand.description || '',
+      type: subcommand.type || ParameterType.OPTIONAL
+    })
+    return this
+  }
+
+  // 添加选项
+  addOption(option) {
+    this.options.push({
+      name: option.name || '',
+      shortFlag: option.shortFlag || '',
+      longFlag: option.longFlag || '',
+      description: option.description || '',
+      type: option.type || ParameterType.OPTIONAL,
+      hasParameter: option.hasParameter || false,
+      parameterType: option.parameterType || DataType.STRING
+    })
+    return this
+  }
+
+  // 添加参数
+  addParameter(parameter) {
+    this.parameters.push({
+      name: parameter.name || '',
+      description: parameter.description || '',
+      type: parameter.type || ParameterType.OPTIONAL,
+      dataType: parameter.dataType || DataType.STRING,
+      placeholder: parameter.placeholder || ''
+    })
+    return this
+  }
+
+  // 添加符号
+  addSymbol(symbol) {
+    this.symbols.push({
+      symbol: symbol.symbol || '',
+      name: symbol.name || '',
+      description: symbol.description || '',
+      category: symbol.category || SymbolCategory.PIPE
+    })
+    return this
+  }
+
+  // 添加常用命令
+  addCommonCommand(command) {
+    this.commonCommands.push({
+      name: command.name || '',
+      command: command.command || '',
+      description: command.description || '',
+      frequency: command.frequency || 0
+    })
+    return this
+  }
+
+  // 导出为配置对象
+  toConfig() {
+    return {
+      name: this.name,
+      category: this.category,
+      tags: this.tags,
+      subcommands: this.subcommands,
+      options: this.options,
+      parameters: this.parameters,
+      symbols: this.symbols,
+      commonCommands: this.commonCommands
+    }
   }
 }
 
 /**
- * 命令构建器主类
+ * 命令构建器
  */
 export class CommandBuilder {
-  constructor() {
-    this.reset()
+  constructor(template) {
+    this.template = template || new CommandTemplate()
+    this.selectedSubcommands = []
+    this.selectedOptions = new Map() // option -> value
+    this.parameterValues = new Map() // parameter -> value
+    this.selectedSymbols = []
   }
 
-  /**
-   * 重置构建器状态
-   */
-  reset() {
-    this.baseCommand = ''
-    this.parameters = []
-    this.options = []
-    this.separators = []
-    this.commonCombinations = []
-    this.parameterValues = {}
-    this.selectedOptions = new Set()
-    this.selectedSeparators = new Set()
-    this.validationRules = []
-  }
-
-  /**
-   * 设置基础命令
-   * @param {string} command 基础命令
-   */
-  setBaseCommand(command) {
-    this.baseCommand = command.trim()
-    return this
-  }
-
-  /**
-   * 添加参数定义
-   * @param {Object} parameter 参数对象
-   */
-  addParameter(parameter) {
-    const param = {
-      name: parameter.name,
-      description: parameter.description || '',
-      required: parameter.required || false,
-      defaultValue: parameter.defaultValue || '',
-      type: parameter.type || ParameterType.STRING,
-      validation: parameter.validation || null,
-      placeholder: parameter.placeholder || '',
-      enumValues: parameter.enumValues || null // 枚举类型的可选值
-    }
-
-    // 验证参数定义
-    if (!param.name) {
-      throw new Error('参数名称不能为空')
-    }
-
-    // 检查参数名是否重复
-    if (this.parameters.find(p => p.name === param.name)) {
-      throw new Error(`参数名称 "${param.name}" 已存在`)
-    }
-
-    this.parameters.push(param)
-    return this
-  }
-
-  /**
-   * 添加选项定义
-   * @param {Object} option 选项对象
-   */
-  addOption(option) {
-    const opt = {
-      shortName: option.shortName || '',
-      longName: option.longName || '',
-      description: option.description || '',
-      type: option.type || 'optional',
-      hasValue: option.hasValue || false,
-      valueType: option.valueType || 'string',
-      parameters: option.parameters || [],
-      conflictsWith: option.conflictsWith || [],
-      dependsOn: option.dependsOn || []
-    }
-
-    // 获取有效的标志名称
-    const validFlag = opt.longName || opt.shortName
-    
-    // 验证选项定义
-    if (!validFlag) {
-      throw new Error('选项标志不能为空')
-    }
-
-    if (!validFlag.startsWith('-')) {
-      throw new Error('选项标志必须以 "-" 开头')
-    }
-
-    // 检查选项是否重复
-    const allFlags = [opt.shortName, opt.longName].filter(Boolean)
-    const existingOption = this.options.find(o => {
-      const existingFlags = [o.shortName, o.longName].filter(Boolean)
-      return allFlags.some(flag => existingFlags.includes(flag))
-    })
-    
-    if (existingOption) {
-      throw new Error(`选项标志已存在`)
-    }
-
-    this.options.push(opt)
-    return this
-  }
-
-  /**
-   * 获取选项的主要标志（用于内部引用）
-   * @param {Object} option 选项对象
-   * @returns {string} 主要标志
-   */
-  getOptionFlag(option) {
-    return option.longName || option.shortName
-  }
-
-  /**
-   * 获取选项的所有标志
-   * @param {Object} option 选项对象
-   * @returns {Array} 所有标志数组
-   */
-  getOptionFlags(option) {
-    return [option.shortName, option.longName].filter(Boolean)
-  }
-
-  /**
-   * 添加分隔符支持
-   * @param {string} symbol 分隔符符号
-   */
-  addSeparator(symbol) {
-    const separator = Object.values(SeparatorType).find(s => s.symbol === symbol)
-    if (!separator) {
-      throw new Error(`不支持的分隔符: ${symbol}`)
-    }
-
-    if (!this.separators.find(s => s.symbol === symbol)) {
-      this.separators.push(separator)
+  // 选择子命令
+  selectSubcommand(name) {
+    if (!this.selectedSubcommands.includes(name)) {
+      this.selectedSubcommands.push(name)
     }
     return this
   }
 
-  /**
-   * 添加常用组合
-   * @param {Object} combination 组合对象
-   */
-  addCommonCombination(combination) {
-    const combo = {
-      name: combination.name,
-      description: combination.description || '',
-      command: combination.command,
-      parameters: combination.parameters || {}
-    }
-
-    this.commonCombinations.push(combo)
-    return this
-  }
-
-  /**
-   * 设置参数值
-   * @param {string} paramName 参数名
-   * @param {*} value 参数值
-   */
-  setParameterValue(paramName, value) {
-    const parameter = this.parameters.find(p => p.name === paramName)
-    if (!parameter) {
-      throw new Error(`参数 "${paramName}" 不存在`)
-    }
-
-    // 验证参数值
-    const validation = this.validateParameterValue(parameter, value)
-    if (!validation.isValid) {
-      throw new Error(`参数 "${paramName}" 验证失败: ${validation.errors.join(', ')}`)
-    }
-
-    this.parameterValues[paramName] = value
-    return this
-  }
-
-  /**
-   * 选择/取消选择选项
-   * @param {string} flag 选项标志
-   */
-  toggleOption(flag) {
-    // 查找选项，支持新旧格式
-    const option = this.options.find(o => {
-      const flags = this.getOptionFlags(o)
-      return flags.includes(flag)
-    })
-    
-    if (!option) {
-      throw new Error(`选项 "${flag}" 不存在`)
-    }
-
-    if (this.selectedOptions.has(flag)) {
-      this.selectedOptions.delete(flag)
-    } else {
-      // 检查冲突
-      const conflicts = this.checkOptionConflicts(flag)
-      if (conflicts.length > 0) {
-        throw new Error(`选项 "${flag}" 与以下选项冲突: ${conflicts.join(', ')}`)
-      }
-
-      this.selectedOptions.add(flag)
+  // 取消选择子命令
+  deselectSubcommand(name) {
+    const index = this.selectedSubcommands.indexOf(name)
+    if (index > -1) {
+      this.selectedSubcommands.splice(index, 1)
     }
     return this
   }
 
-  /**
-   * 选择/取消选择分隔符
-   * @param {string} symbol 分隔符符号
-   */
-  toggleSeparator(symbol) {
-    if (this.selectedSeparators.has(symbol)) {
-      this.selectedSeparators.delete(symbol)
-    } else {
-      this.selectedSeparators.add(symbol)
-    }
+  // 设置选项
+  setOption(name, value = null) {
+    this.selectedOptions.set(name, value)
     return this
   }
 
-  /**
-   * 验证参数值
-   * @param {Object} parameter 参数定义
-   * @param {*} value 参数值
-   * @returns {Object} 验证结果
-   */
-  validateParameterValue(parameter, value) {
-    const result = {
-      isValid: true,
-      errors: [],
-      warnings: []
-    }
-
-    // 必选参数检查
-    if (parameter.required && (!value || value.toString().trim() === '')) {
-      result.errors.push('必选参数不能为空')
-      result.isValid = false
-      return result
-    }
-
-    // 如果值为空且有默认值，使用默认值
-    if (!value && parameter.defaultValue) {
-      return result
-    }
-
-    // 类型验证
-    switch (parameter.type) {
-      case ParameterType.NUMBER:
-        if (value && !ValidationRules.NUMBER.pattern.test(value)) {
-          result.errors.push(ValidationRules.NUMBER.message)
-          result.isValid = false
-        }
-        break
-
-      case ParameterType.URL:
-        if (value && !ValidationRules.URL.pattern.test(value)) {
-          result.errors.push(ValidationRules.URL.message)
-          result.isValid = false
-        }
-        break
-
-      case ParameterType.EMAIL:
-        if (value && !ValidationRules.EMAIL.pattern.test(value)) {
-          result.errors.push(ValidationRules.EMAIL.message)
-          result.isValid = false
-        }
-        break
-
-      case ParameterType.FILE:
-      case ParameterType.DIRECTORY:
-        if (value && !ValidationRules.FILE_PATH.pattern.test(value)) {
-          result.errors.push(ValidationRules.FILE_PATH.message)
-          result.isValid = false
-        }
-        break
-
-      case ParameterType.ENUM:
-        if (value && parameter.enumValues && !parameter.enumValues.includes(value)) {
-          result.errors.push(`值必须是以下之一: ${parameter.enumValues.join(', ')}`)
-          result.isValid = false
-        }
-        break
-
-      case ParameterType.BOOLEAN:
-        if (value && !['true', 'false', '1', '0', 'yes', 'no'].includes(value.toLowerCase())) {
-          result.errors.push('布尔值必须是 true/false, 1/0, yes/no 之一')
-          result.isValid = false
-        }
-        break
-    }
-
-    // 自定义验证规则
-    if (parameter.validation && typeof parameter.validation === 'function') {
-      try {
-        const customResult = parameter.validation(value)
-        if (!customResult.isValid) {
-          result.errors.push(...customResult.errors)
-          result.isValid = false
-        }
-        if (customResult.warnings) {
-          result.warnings.push(...customResult.warnings)
-        }
-      } catch (error) {
-        result.errors.push(`自定义验证失败: ${error.message}`)
-        result.isValid = false
-      }
-    }
-
-    return result
+  // 设置参数
+  setParameter(name, value) {
+    this.parameterValues.set(name, value)
+    return this
   }
 
-  /**
-   * 检查选项冲突
-   * @param {string} flag 选项标志
-   * @returns {Array} 冲突的选项列表
-   */
-  checkOptionConflicts(flag) {
-    const option = this.options.find(o => o.flag === flag)
-    if (!option) return []
+  // 添加符号
+  addSymbol(symbol) {
+    this.selectedSymbols.push(symbol)
+    return this
+  }
 
-    const conflicts = []
-    
-    // 检查与当前选中选项的冲突
-    option.conflictsWith.forEach(conflictFlag => {
-      if (this.selectedOptions.has(conflictFlag)) {
-        conflicts.push(conflictFlag)
+  // 构建命令
+  build() {
+    let command = this.template.name
+
+    // 添加子命令
+    if (this.selectedSubcommands.length > 0) {
+      command += ' ' + this.selectedSubcommands.join(' ')
+    }
+
+    // 添加选项
+    const optionParts = []
+    this.selectedOptions.forEach((value, name) => {
+      const option = this.template.options.find(opt => opt.name === name)
+      if (option) {
+        let optionStr = option.shortFlag || option.longFlag
+        if (value && option.hasParameter) {
+          optionStr += ` ${value}`
+        }
+        optionParts.push(optionStr)
       }
     })
+    if (optionParts.length > 0) {
+      command += ' ' + optionParts.join(' ')
+    }
 
-    return conflicts
-  }
-
-  /**
-   * 检查选项依赖
-   * @param {string} flag 选项标志
-   * @returns {Array} 缺失的依赖选项
-   */
-  checkOptionDependencies(flag) {
-    const option = this.options.find(o => o.flag === flag)
-    if (!option) return []
-
-    const missingDeps = []
-    
-    option.dependsOn.forEach(depFlag => {
-      if (!this.selectedOptions.has(depFlag)) {
-        missingDeps.push(depFlag)
-      }
-    })
-
-    return missingDeps
-  }
-
-  /**
-   * 构建命令模板
-   * @returns {string} 命令模板
-   */
-  buildTemplate() {
-    let template = this.baseCommand
-
-    // 添加选中的选项
-    this.selectedOptions.forEach(flag => {
-      template += ` ${flag}`
-    })
-
-    // 添加参数占位符
-    this.parameters.forEach(param => {
-      if (param.required) {
-        template += ` {{${param.name}}}`
-      } else {
-        template += ` [{{${param.name}}}]`
-      }
-    })
-
-    return template.trim()
-  }
-
-  /**
-   * 构建可执行命令
-   * @param {Object} options 构建选项
-   * @returns {string} 可执行命令
-   */
-  buildExecutableCommand(options = {}) {
-    const { 
-      useDefaults = true, 
-      validateRequired = true,
-      escapeValues = true 
-    } = options
-
-    let command = this.baseCommand
-
-    // 添加选中的选项
-    this.selectedOptions.forEach(flag => {
-      command += ` ${flag}`
-    })
-
-    // 添加参数值
-    this.parameters.forEach(param => {
-      let value = this.parameterValues[param.name]
-
-      // 使用默认值
-      if (!value && useDefaults && param.defaultValue) {
-        value = param.defaultValue
-      }
-
-      // 验证必选参数
-      if (validateRequired && param.required && !value) {
-        throw new Error(`必选参数 "${param.name}" 未提供值`)
-      }
-
-      // 添加参数值到命令
+    // 添加参数
+    const parameterParts = []
+    this.parameterValues.forEach((value, name) => {
       if (value) {
-        // 转义特殊字符
-        if (escapeValues && typeof value === 'string') {
-          value = this.escapeCommandValue(value)
-        }
-        command += ` ${value}`
+        parameterParts.push(value)
       }
     })
+    if (parameterParts.length > 0) {
+      command += ' ' + parameterParts.join(' ')
+    }
+
+    // 添加符号（如管道、重定向等）
+    if (this.selectedSymbols.length > 0) {
+      command += ' ' + this.selectedSymbols.join(' ')
+    }
 
     return command.trim()
   }
 
-  /**
-   * 转义命令值中的特殊字符
-   * @param {string} value 要转义的值
-   * @returns {string} 转义后的值
-   */
-  escapeCommandValue(value) {
-    // 如果包含空格或特殊字符，用引号包围
-    if (/[\s<>"|&;()$`\\]/.test(value)) {
-      return `"${value.replace(/"/g, '\\"')}"`
-    }
-    return value
-  }
-
-  /**
-   * 完整验证命令
-   * @returns {Object} 验证结果
-   */
-  validateCommand() {
-    const result = {
-      isValid: true,
-      errors: [],
-      warnings: []
-    }
-
-    // 检查基础命令
-    if (!this.baseCommand) {
-      result.errors.push('基础命令不能为空')
-      result.isValid = false
-    }
-
-    // 验证必选参数
-    this.parameters.forEach(param => {
-      if (param.required) {
-        const value = this.parameterValues[param.name]
-        if (!value || value.toString().trim() === '') {
-          result.errors.push(`必选参数 "${param.name}" 未提供值`)
-          result.isValid = false
-        } else {
-          // 验证参数值
-          const paramValidation = this.validateParameterValue(param, value)
-          if (!paramValidation.isValid) {
-            result.errors.push(`参数 "${param.name}": ${paramValidation.errors.join(', ')}`)
-            result.isValid = false
-          }
-          result.warnings.push(...paramValidation.warnings)
-        }
-      }
-    })
-
-    // 验证必选选项
-    this.options.forEach(option => {
-      const optionFlag = this.getOptionFlag(option)
-      const optionFlags = this.getOptionFlags(option)
-      
-      if (option.type === 'required' && !optionFlags.some(flag => this.selectedOptions.has(flag))) {
-        result.errors.push(`必选选项 "${optionFlag}" 未选择`)
-        result.isValid = false
-      }
-      
-
-    })
-
-    // 验证互斥组冲突
-    if (this.command.mutexGroups && Array.isArray(this.command.mutexGroups)) {
-      this.command.mutexGroups.forEach(group => {
-        if (group.optionIndexes && group.optionIndexes.length === 2) {
-          const option1 = this.options[group.optionIndexes[0]]
-          const option2 = this.options[group.optionIndexes[1]]
-          
-          if (option1 && option2) {
-            const option1Flags = this.getOptionFlags(option1)
-            const option2Flags = this.getOptionFlags(option2)
-            
-            const option1Selected = option1Flags.some(flag => this.selectedOptions.has(flag))
-            const option2Selected = option2Flags.some(flag => this.selectedOptions.has(flag))
-            
-            if (option1Selected && option2Selected) {
-              const flag1 = this.getOptionFlag(option1)
-              const flag2 = this.getOptionFlag(option2)
-              result.errors.push(`互斥选项冲突：${flag1} 和 ${flag2} 不能同时使用`)
-              result.isValid = false
-            }
-          }
-        }
-      })
-    }
-
-    // 检查选项依赖
-    this.selectedOptions.forEach(flag => {
-      const missingDeps = this.checkOptionDependencies(flag)
-      if (missingDeps.length > 0) {
-        result.errors.push(`选项 "${flag}" 依赖以下选项: ${missingDeps.join(', ')}`)
-        result.isValid = false
-      }
-    })
-
-    return result
-  }
-
-  /**
-   * 解析现有命令
-   * @param {string} command 要解析的命令
-   * @returns {Object} 解析结果
-   */
-  parseCommand(command) {
-    const tokens = command.trim().split(/\s+/)
-    const analysis = {
-      baseCommand: '',
-      options: [],
-      arguments: [],
-      separators: []
-    }
-
-    if (tokens.length === 0) return analysis
-
-    // 第一个token是基础命令
-    analysis.baseCommand = tokens[0]
-
-    // 解析其余tokens
-    for (let i = 1; i < tokens.length; i++) {
-      const token = tokens[i]
-
-      if (token.startsWith('-')) {
-        analysis.options.push(token)
-      } else if (Object.values(SeparatorType).some(s => s.symbol === token)) {
-        analysis.separators.push(token)
-      } else {
-        analysis.arguments.push(token)
-      }
-    }
-
-    return analysis
-  }
-
-  /**
-   * 从现有命令定义加载
-   * @param {Object} commandDef 命令定义对象
-   */
-  loadFromDefinition(commandDef) {
-    this.reset()
-    
-    // 解析基础命令
-    if (commandDef.commandName) {
-      this.setBaseCommand(commandDef.commandName)
-    } else if (commandDef.command) {
-      // 从完整命令中提取基础命令
-      const baseCmd = commandDef.command.split(/\s+/)[0]
-      this.setBaseCommand(baseCmd)
-    }
-
-    // 加载参数定义
-    if (commandDef.parameters && Array.isArray(commandDef.parameters)) {
-      commandDef.parameters.forEach(param => {
-        this.addParameter(param)
-      })
-    }
-
-    // 加载选项定义
-    if (commandDef.options && Array.isArray(commandDef.options)) {
-      commandDef.options.forEach(option => {
-        this.addOption(option)
-      })
-    }
-
-    // 加载分隔符
-    if (commandDef.separators && Array.isArray(commandDef.separators)) {
-      commandDef.separators.forEach(sep => {
-        this.addSeparator(sep.symbol)
-      })
-    }
-
-    // 加载常用组合
-    if (commandDef.commonCommands && Array.isArray(commandDef.commonCommands)) {
-      commandDef.commonCommands.forEach(combo => {
-        this.addCommonCombination({
-          name: combo.name,
-          description: combo.description,
-          command: combo.command
-        })
-      })
-    }
-
+  // 重置构建器
+  reset() {
+    this.selectedSubcommands = []
+    this.selectedOptions.clear()
+    this.parameterValues.clear()
+    this.selectedSymbols = []
     return this
   }
 
-  /**
-   * 导出为命令定义对象
-   * @returns {Object} 命令定义对象
-   */
-  exportDefinition() {
+  // 获取验证结果
+  validate() {
+    const errors = []
+    const warnings = []
+
+    // 检查必需的子命令
+    const requiredSubcommands = this.template.subcommands.filter(
+      sub => sub.type === ParameterType.REQUIRED
+    )
+    for (const required of requiredSubcommands) {
+      if (!this.selectedSubcommands.includes(required.name)) {
+        errors.push(`缺少必需的子命令: ${required.name}`)
+      }
+    }
+
+    // 检查必需的参数
+    const requiredParameters = this.template.parameters.filter(
+      param => param.type === ParameterType.REQUIRED
+    )
+    for (const required of requiredParameters) {
+      if (!this.parameterValues.has(required.name) || !this.parameterValues.get(required.name)) {
+        errors.push(`缺少必需的参数: ${required.name}`)
+      }
+    }
+
     return {
-      commandName: this.baseCommand,
-      command: this.buildTemplate(),
-      parameters: this.parameters,
-      options: this.options,
-      separators: this.separators,
-      commonCombinations: this.commonCombinations
+      isValid: errors.length === 0,
+      errors,
+      warnings
     }
-  }
-
-  /**
-   * 获取参数建议
-   * @param {string} paramName 参数名
-   * @returns {Array} 建议值列表
-   */
-  getParameterSuggestions(paramName) {
-    const parameter = this.parameters.find(p => p.name === paramName)
-    if (!parameter) return []
-
-    const suggestions = []
-
-    // 枚举类型返回所有可选值
-    if (parameter.type === ParameterType.ENUM && parameter.enumValues) {
-      return parameter.enumValues
-    }
-
-    // 布尔类型返回常用值
-    if (parameter.type === ParameterType.BOOLEAN) {
-      return ['true', 'false', 'yes', 'no', '1', '0']
-    }
-
-    // 根据参数名称提供智能建议
-    const paramLower = paramName.toLowerCase()
-    if (paramLower.includes('file') || paramLower.includes('path')) {
-      suggestions.push('./example.txt', '/path/to/file', '*.txt')
-    } else if (paramLower.includes('url') || paramLower.includes('link')) {
-      suggestions.push('https://example.com', 'http://localhost:3000')
-    } else if (paramLower.includes('port')) {
-      suggestions.push('3000', '8080', '80', '443')
-    } else if (paramLower.includes('host')) {
-      suggestions.push('localhost', '127.0.0.1', '0.0.0.0')
-    }
-
-    return suggestions
   }
 }
 
 /**
- * 命令模板管理器
+ * 模板工厂
  */
-export class CommandTemplateManager {
-  constructor() {
-    this.templates = new Map()
-  }
-
-  /**
-   * 保存命令模板
-   * @param {string} name 模板名称
-   * @param {CommandBuilder} builder 命令构建器实例
-   */
-  saveTemplate(name, builder) {
-    const template = {
-      name,
-      definition: builder.exportDefinition(),
-      createdAt: new Date().toISOString()
-    }
-    this.templates.set(name, template)
-    return template
-  }
-
-  /**
-   * 加载命令模板
-   * @param {string} name 模板名称
-   * @returns {CommandBuilder} 命令构建器实例
-   */
-  loadTemplate(name) {
-    const template = this.templates.get(name)
-    if (!template) {
-      throw new Error(`模板 "${name}" 不存在`)
-    }
-
-    const builder = new CommandBuilder()
-    builder.loadFromDefinition(template.definition)
-    return builder
-  }
-
-  /**
-   * 获取所有模板
-   * @returns {Array} 模板列表
-   */
-  getAllTemplates() {
-    return Array.from(this.templates.values())
-  }
-
-  /**
-   * 删除模板
-   * @param {string} name 模板名称
-   */
-  deleteTemplate(name) {
-    return this.templates.delete(name)
-  }
-}
-
-// 导出工具函数
-export const createCommandBuilder = () => new CommandBuilder()
-export const createTemplateManager = () => new CommandTemplateManager()
-
-// 预设的常用命令构建器
-export const createGitCommandBuilder = () => {
-  const builder = new CommandBuilder()
-  
-  builder.setBaseCommand('git')
-    .addOption({ flag: '-v', description: '显示详细信息' })
-    .addOption({ flag: '--help', description: '显示帮助信息' })
-    .addSeparator('&&')
-    .addSeparator('|')
-  
-  return builder
-}
-
-export const createDockerCommandBuilder = () => {
-  const builder = new CommandBuilder()
-  
-  builder.setBaseCommand('docker')
-    .addOption({ flag: '-d', description: '后台运行' })
-    .addOption({ flag: '--rm', description: '容器退出时自动删除' })
-    .addParameter({
-      name: 'image',
-      description: '镜像名称',
-      required: true,
-      type: ParameterType.STRING
+export class TemplateFactory {
+  // 创建Git模板
+  static createGitTemplate() {
+    return new CommandTemplate({
+      name: 'git',
+      category: 'version-control',
+      tags: ['git', '版本控制', 'vcs']
     })
-  
-  return builder
+    .addSubcommand({ name: 'add', description: '添加文件到暂存区' })
+    .addSubcommand({ name: 'commit', description: '提交更改' })
+    .addSubcommand({ name: 'push', description: '推送到远程仓库' })
+    .addSubcommand({ name: 'pull', description: '拉取远程更改' })
+    .addOption({ name: 'message', shortFlag: '-m', description: '提交信息', hasParameter: true })
+    .addOption({ name: 'all', shortFlag: '-a', description: '添加所有文件' })
+    .addParameter({ name: 'file', description: '文件路径', dataType: DataType.FILE })
+    .addSymbol({ symbol: '&&', name: '逻辑与', category: SymbolCategory.LOGIC })
+    .addCommonCommand({ 
+      name: '快速提交', 
+      command: 'git add . && git commit -m "update" && git push',
+      description: '添加、提交并推送所有更改'
+    })
+  }
+
+  // 创建Docker模板
+  static createDockerTemplate() {
+    return new CommandTemplate({
+      name: 'docker',
+      category: 'container',
+      tags: ['docker', '容器', 'container']
+    })
+    .addSubcommand({ name: 'run', description: '运行容器' })
+    .addSubcommand({ name: 'build', description: '构建镜像' })
+    .addSubcommand({ name: 'ps', description: '列出容器' })
+    .addOption({ name: 'detach', shortFlag: '-d', description: '后台运行' })
+    .addOption({ name: 'port', shortFlag: '-p', description: '端口映射', hasParameter: true })
+    .addParameter({ name: 'image', description: '镜像名称', dataType: DataType.STRING })
+    .addSymbol({ symbol: '|', name: '管道', category: SymbolCategory.PIPE })
+    .addCommonCommand({
+      name: '运行Nginx',
+      command: 'docker run -d -p 80:80 nginx',
+      description: '后台运行Nginx容器'
+    })
+  }
+
+  // 创建文件操作模板
+  static createFileTemplate() {
+    return new CommandTemplate({
+      name: 'ls',
+      category: 'filesystem',
+      tags: ['文件', '目录', 'file']
+    })
+    .addOption({ name: 'long', shortFlag: '-l', description: '详细列表' })
+    .addOption({ name: 'all', shortFlag: '-a', description: '显示隐藏文件' })
+    .addParameter({ name: 'path', description: '目录路径', dataType: DataType.DIRECTORY })
+    .addSymbol({ symbol: '>', name: '输出重定向', category: SymbolCategory.REDIRECT })
+    .addCommonCommand({
+      name: '详细列表',
+      command: 'ls -la',
+      description: '显示所有文件的详细信息'
+    })
+  }
 }
 
-export const createNpmCommandBuilder = () => {
-  const builder = new CommandBuilder()
-  
-  builder.setBaseCommand('npm')
-    .addParameter({
-      name: 'command',
-      description: 'npm命令',
-      required: true,
-      type: ParameterType.ENUM,
-      enumValues: ['install', 'run', 'build', 'test', 'publish', 'start']
-    })
-    .addOption({ flag: '--save-dev', description: '保存到开发依赖' })
-    .addOption({ flag: '--global', description: '全局安装' })
-  
-  return builder
+export default {
+  CommandTemplate,
+  CommandBuilder,
+  TemplateFactory,
+  SymbolCategory,
+  PredefinedSymbols
 } 

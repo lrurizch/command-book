@@ -7,35 +7,17 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import Fuse from 'fuse.js'
 import { 
-  createCommandManager,
-  quickCreateCommand,
-  quickBuildCommand,
-  quickAnalyzeCommand
-} from '../utils/commandManager.js'
-import {
-  createParameterClassifier,
-  createEnhancedParameterBuilder,
-  ParameterClassification,
-  ParameterRequirement,
-  ParameterLevel
-} from '../utils/parameterClassification.js'
-import { migrateCommands } from '../utils/parameterMigration.js'
+  CommandTemplate,
+  CommandBuilder,
+  TemplateFactory,
+  ParameterType,
+  DataType,
+  SymbolCategory
+} from '../utils/commandBuilder.js'
 
-// 导入示例数据
-import gitCommands from '../../git-commands-processed.json'
-import updatedCommands from '../../updated-commands.json'
+// 使用内置模板，不再导入外部数据文件
 
 export const useCommandStore = defineStore('command', () => {
-  // ===== 核心管理器 =====
-  const commandManager = createCommandManager({
-    enableValidation: true,
-    enableSuggestions: true,
-    enableSecurity: false,
-    autoSave: true
-  })
-  
-  const parameterClassifier = createParameterClassifier()
-  
   // ===== 基础状态 =====
   const commands = ref([])
   const categories = ref([
@@ -1046,6 +1028,138 @@ export const useCommandStore = defineStore('command', () => {
     
     saveToStorage()
   }
+
+  /**
+   * 创建通用命令结构
+   * @param {Object} config 配置对象
+   * @returns {UniversalCommandStructure} 通用命令结构实例
+   */
+  const createUniversalCommand = (config = {}) => {
+    return new UniversalCommandStructure(config)
+  }
+
+  /**
+   * 从现有命令创建通用结构
+   * @param {Object} command 现有命令对象
+   * @returns {UniversalCommandStructure} 通用命令结构实例
+   */
+  const convertToUniversalStructure = (command) => {
+    const structure = new UniversalCommandStructure({
+      id: command.id,
+      name: command.name || command.commandName,
+      description: command.description,
+      category: command.category,
+      mainCommand: command.mainCommand,
+      tags: command.tags || [],
+      author: command.author || 'User',
+      created: command.createdAt ? new Date(command.createdAt) : new Date(),
+      updated: command.updatedAt ? new Date(command.updatedAt) : new Date()
+    })
+
+    // 转换子命令
+    if (command.subcommands) {
+      command.subcommands.forEach(sub => {
+        structure.addSubcommand({
+          name: sub.name,
+          type: sub.type || 'OPTIONAL',
+          description: sub.description || '',
+          aliases: sub.aliases || []
+        })
+      })
+    }
+
+    // 转换参数
+    if (command.parameters) {
+      command.parameters.forEach((param, index) => {
+        structure.addParameter({
+          name: param.name,
+          type: param.type || 'OPTIONAL',
+          dataType: param.dataType || 'STRING',
+          description: param.description || '',
+          placeholder: param.placeholder || '',
+          position: index,
+          repeatable: param.repeatable || false
+        })
+      })
+    }
+
+    // 转换选项
+    if (command.options) {
+      command.options.forEach(option => {
+        structure.addOption({
+          name: option.name || option.longName || option.shortName,
+          shortFlag: option.shortName,
+          longFlag: option.longName,
+          type: option.type || 'OPTIONAL',
+          description: option.description || '',
+          parameterRequired: option.hasParameter || false,
+          parameterDataType: option.parameterType || 'STRING'
+        })
+      })
+    }
+
+    return structure
+  }
+
+  /**
+   * 构建通用命令
+   * @param {UniversalCommandStructure} structure 命令结构
+   * @param {Object} selections 用户选择和输入
+   * @returns {String} 构建的命令字符串
+   */
+  const buildUniversalCommand = (structure, selections = {}) => {
+    const builder = new UniversalCommandBuilder(structure)
+
+    // 应用子命令选择
+    if (selections.subcommands) {
+      selections.subcommands.forEach(name => {
+        builder.selectSubcommand(name)
+      })
+    }
+
+    // 应用选项选择
+    if (selections.options) {
+      Object.entries(selections.options).forEach(([name, value]) => {
+        builder.selectOption(name, value)
+      })
+    }
+
+    // 应用参数值
+    if (selections.parameters) {
+      Object.entries(selections.parameters).forEach(([name, value]) => {
+        builder.setParameter(name, value)
+      })
+    }
+
+    return builder.build()
+  }
+
+  /**
+   * 获取命令模板
+   * @param {String} type 模板类型 ('git', 'docker', 'npm')
+   * @returns {UniversalCommandStructure} 命令模板
+   */
+  const getCommandTemplate = (type) => {
+    switch (type) {
+      case 'git':
+        return CommandTemplateFactory.createGitTemplate()
+      case 'docker':
+        return CommandTemplateFactory.createDockerTemplate()
+      case 'npm':
+        return CommandTemplateFactory.createNpmTemplate()
+      default:
+        return new UniversalCommandStructure()
+    }
+  }
+
+  /**
+   * 添加通用命令（从UniversalCommandStructure）
+   * @param {UniversalCommandStructure} structure 通用命令结构
+   */
+  const addUniversalCommand = (structure) => {
+    const commandData = structure.toCommandData()
+    addCommand(commandData)
+  }
   
   /**
    * 更新命令
@@ -1442,30 +1556,40 @@ export const useCommandStore = defineStore('command', () => {
    * 初始化示例数据
    */
   const initializeData = () => {
-    // 加载Git命令数据（应用参数类型迁移）
-    if (gitCommands && gitCommands.commands) {
-      const migratedGitCommands = migrateCommands(gitCommands.commands)
-      migratedGitCommands.forEach(cmd => {
-        commands.value.push({
-          ...cmd,
-          isUserCreated: false
-        })
+    try {
+      // 创建内置模板示例
+      const templates = [
+        TemplateFactory.createGitTemplate(),
+        TemplateFactory.createDockerTemplate(),
+        TemplateFactory.createFileTemplate()
+      ]
+      
+      templates.forEach((template, index) => {
+        const commandData = {
+          id: `template-${index + 1}`,
+          name: template.name,
+          description: `${template.name} 命令模板`,
+          category: template.category,
+          tags: template.tags,
+          templateData: template.toConfig(),
+          isUserCreated: false,
+          isSystemExample: true,
+          created: new Date(),
+          updated: new Date()
+        }
+        commands.value.push(commandData)
       })
-    }
-    
-    // 加载更新的命令数据（应用参数类型迁移）
-    if (updatedCommands && updatedCommands.commands) {
-      const migratedUpdatedCommands = migrateCommands(updatedCommands.commands)
-      migratedUpdatedCommands.forEach(cmd => {
-        commands.value.push({
-          ...cmd,
-          isUserCreated: false
-        })
-      })
-    }
-    
-    // 如果没有用户数据，创建初始示例
-    if (commands.value.filter(cmd => cmd.isUserCreated).length === 0) {
+      
+      // 如果没有用户数据，创建初始示例
+      if (commands.value.filter(cmd => cmd.isUserCreated).length === 0) {
+        createInitialUserData()
+      }
+      
+      console.log(`已加载 ${templates.length} 个系统模板`)
+      
+    } catch (error) {
+      console.error('初始化命令数据失败:', error)
+      // 出错时仍然创建初始数据
       createInitialUserData()
     }
   }
@@ -1474,8 +1598,6 @@ export const useCommandStore = defineStore('command', () => {
    * 创建初始用户示例数据
    */
   const createInitialUserData = () => {
-    const now = new Date().toISOString()
-    
     // 添加用户创建的示例分类
     const userCategory = {
       id: 'my-custom-commands',
@@ -1487,40 +1609,51 @@ export const useCommandStore = defineStore('command', () => {
     }
     categories.value.push(userCategory)
     
-    // 添加用户手动创建的示例命令
-    const userCommands = [
-      {
-        id: generateId(),
-        name: '快速启动项目',
-        command: 'npm run dev --port {{port}}',
-        description: '启动开发服务器',
-        category: 'my-custom-commands',
-        tags: ['开发', '启动', '自定义'],
-        parameters: [
-          {
-            name: 'port',
-            description: '端口号',
-            required: false,
-            defaultValue: '3000',
-            level: 'option',
-            parentOption: '--port'
-          }
-        ],
-        options: [
-          { flag: '--host', description: '指定主机地址' },
-          { flag: '--port', description: '指定端口号' }
-        ],
-        isUserCreated: true,
-        createdAt: now,
-        updatedAt: now
-      }
-    ]
+    // 创建一个用户示例命令模板
+    const userTemplate = new CommandTemplate({
+      name: 'npm',
+      category: 'my-custom-commands',
+      tags: ['开发', '启动', '自定义']
+    })
+    .addSubcommand({ 
+      name: 'run', 
+      description: '运行脚本' 
+    })
+    .addSubcommand({ 
+      name: 'start', 
+      description: '启动应用' 
+    })
+    .addOption({ 
+      name: 'port', 
+      longFlag: '--port', 
+      description: '指定端口号',
+      hasParameter: true
+    })
+    .addCommonCommand({
+      name: '启动开发服务器',
+      command: 'npm run dev --port 3000',
+      description: '在3000端口启动开发服务器'
+    })
     
-    // 将用户命令添加到commands数组
-    commands.value.push(...userCommands)
+    const userCommand = {
+      id: generateId(),
+      name: '快速启动项目',
+      description: '开发项目快速启动命令模板',
+      category: 'my-custom-commands',
+      tags: ['开发', '启动', '自定义'],
+      templateData: userTemplate.toConfig(),
+      isUserCreated: true,
+      isSystemExample: false,
+      created: new Date(),
+      updated: new Date()
+    }
+    
+    commands.value.push(userCommand)
     
     // 保存用户数据
     saveToStorage()
+    
+    console.log('创建初始用户数据完成')
   }
   
   // ===== 初始化 =====
@@ -1640,8 +1773,9 @@ export const useCommandStore = defineStore('command', () => {
     saveToStorage,
     loadFromStorage,
     
-    // 管理器实例（高级用法）
-    commandManager,
-    parameterClassifier
+    // 简化命令模板方法
+    TemplateFactory,
+    CommandTemplate,
+    CommandBuilder
   }
 })

@@ -265,13 +265,7 @@
       @execute="handleDetailExecute"
     />
 
-    <!-- 命令构建器模态框 -->
-    <CommandBuilderModal
-      v-model:visible="showBuilderModal"
-      :command="builderCommand"
-      @execute="handleBuilderExecute"
-      @save="handleBuilderSave"
-    />
+    <!-- 命令构建器模态框已删除，使用 CommandAddModal 的模板构建器模式 -->
 
     <!-- 复制命令管理模态框 -->
     <CopyCommandModal
@@ -334,7 +328,7 @@ import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import { FolderOpened, Search, Clock, Delete, Plus, DocumentAdd, Tools, Connection, RefreshLeft, Setting, View, Loading, Check, Close } from '@element-plus/icons-vue'
 import CommandCard from '../components/CommandCard.vue'
 import CommandDetailModal from '../components/CommandDetailModal.vue'
-import CommandBuilderModal from '../components/CommandBuilderModal.vue'
+// CommandBuilderModal 已被删除，使用 CommandAddModal 的模板构建器模式
 import CommandAddModal from '../components/CommandAddModal.vue'
 import BatchCreateModal from '../components/BatchCreateModal.vue'
 import WorkflowAddModal from '../components/WorkflowAddModal.vue'
@@ -1037,8 +1031,8 @@ onMounted(async () => {
   lastQuery = commandStore.currentSearchQuery
   lastTagsStr = commandStore.selectedTags.join(',')
   
-  // 立即开始渐进式批量加载
-  await progressiveBatchLoad()
+  // 确保命令数据已加载
+  console.log('当前命令数量:', commandStore.commands.length)
   
   // 注册全局事件监听器
   window.addEventListener('focus-search', handleFocusSearch)
