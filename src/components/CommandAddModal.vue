@@ -7,12 +7,6 @@
     @close="handleClose"
     class="command-add-modal"
   >
-    <!-- 标题说明 -->
-    <div class="form-header">
-      <h3>创建命令模板</h3>
-      <p class="form-description">创建可重用的命令模板，包含命令名称、分类、标签和可选的子命令、选项、参数等。</p>
-    </div>
-
     <!-- 命令模板表单 -->
     <div class="command-form">
       <!-- 基本信息 -->
@@ -3703,13 +3697,7 @@ watch(() => props.editingCommand, (newCommand) => {
   }
   
   /* 强制统一所有表单区域样式 */
-  .basic-info-section,
-  .common-commands-section,
-  .subcommands-section,
-  .options-section,
-  .parameters-section,
-  .symbols-section,
-  .dialog-form-section {
+  .form-section {
     background: var(--el-bg-color) !important;
     border: 1px solid var(--el-border-color-lighter) !important;
     border-radius: var(--el-border-radius-base) !important;
@@ -3722,6 +3710,17 @@ watch(() => props.editingCommand, (newCommand) => {
       border-color: var(--el-border-color-light) !important;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08) !important;
     }
+  }
+  
+  /* 确保所有具体的section类也应用相同样式 */
+  .basic-info-section,
+  .common-commands-section,
+  .subcommands-section,
+  .options-section,
+  .parameters-section,
+  .symbols-section,
+  .dialog-form-section {
+    /* 继承上面的.form-section样式 */
   }
 
   /* 命令参数样式 */
