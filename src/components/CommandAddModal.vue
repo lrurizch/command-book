@@ -1003,14 +1003,13 @@
                       size="small"
                       class="value-input"
                     />
-                    <el-button
-                      :type="param.defaultValue === commonValue ? 'primary' : 'default'"
-                      size="small"
-                      @click="setDefaultValue(index, valueIndex)"
-                      class="default-btn"
+                    <el-checkbox
+                      :model-value="param.defaultValue === commonValue"
+                      @change="(checked) => setDefaultValue(index, valueIndex, checked)"
+                      class="default-checkbox"
                     >
                       默认
-                    </el-button>
+                    </el-checkbox>
                     <el-button
                       type="text"
                       size="small"
@@ -1038,15 +1037,7 @@
           </div>
         </div>
         
-        <div class="common-params-actions">
-          <el-button
-            size="small"
-            @click="addNewOptionParameter"
-            icon="Plus"
-          >
-            添加常用参数值
-          </el-button>
-        </div>
+
       </div>
     </div>
     
@@ -2265,16 +2256,16 @@ const removeOptionCommonValue = (paramIndex, valueIndex) => {
 }
 
 // 设置默认参数值
-const setDefaultValue = (paramIndex, valueIndex) => {
+const setDefaultValue = (paramIndex, valueIndex, checked) => {
   const param = newOptionForm.value.parameters[paramIndex]
   const currentValue = param.commonValues[valueIndex]
   
-  // 如果当前值已经是默认值，则取消默认值
-  if (param.defaultValue === currentValue) {
-    param.defaultValue = ''
-  } else {
-    // 否则设置为默认值（自动取消之前的默认值）
+  if (checked) {
+    // 设置为默认值（自动取消之前的默认值）
     param.defaultValue = currentValue
+  } else {
+    // 取消默认值
+    param.defaultValue = ''
   }
 }
 
@@ -3598,9 +3589,9 @@ watch(() => props.editingCommand, (newCommand) => {
               flex: 1;
             }
             
-            .default-btn {
+            .default-checkbox {
               flex-shrink: 0;
-              min-width: 70px;
+              margin-left: var(--el-spacing-xs);
             }
             
             .remove-value-btn {
