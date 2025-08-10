@@ -329,6 +329,13 @@
             </div>
           </div>
         </div>
+        
+        <!-- 命令分隔符说明 -->
+        <div class="separator-hint">
+          <span class="hint-text">
+            配置命令时，可以通过添加选项来自定义命令与选项、选项与参数之间的分隔符（如空格、等号=、冒号:等），以适应不同命令行工具的语法要求。
+          </span>
+        </div>
       </div>
 
       <!-- 命令选项 -->
@@ -628,13 +635,18 @@
         <!-- 命令与参数间分隔符 -->
         <div class="form-group">
           <label class="form-label">命令与参数间分隔符</label>
-          <el-input
+                    <el-input
             v-model="form.commandParameterSeparator"
             placeholder="空格"
             maxlength="5"
             class="command-parameter-separator-input"
           />
-          <span class="form-help">命令与参数之间的分隔符，默认为空格</span>
+        </div>
+        
+        <div class="separator-hint">
+          <span class="hint-text">
+            设置命令与参数间的分隔符，默认为空格。可根据具体命令语法自定义（如等号=、冒号:等）。
+          </span>
         </div>
         
         <div v-if="detectedParameters.length > 0" class="detected-params">
@@ -915,7 +927,6 @@
             maxlength="5"
             class="command-separator-input"
           />
-          <span class="form-help">命令与此选项之间的分隔符，默认为空格</span>
         </div>
         
         <div class="form-row">
@@ -998,7 +1009,12 @@
             maxlength="5"
             class="option-separator-input"
           />
-          <span class="form-help">此选项与参数之间的分隔符，默认为空格</span>
+        </div>
+        
+        <div class="separator-hint">
+          <span class="hint-text">
+            分隔符用于连接命令的不同部分（如空格、等号=、冒号:等），默认均为空格。可根据具体命令的语法要求自定义。
+          </span>
         </div>
         
         <div v-if="newOptionForm.parameters.length === 0" class="empty-params">
@@ -3319,7 +3335,8 @@ watch(() => props.editingCommand, (newCommand) => {
     }
   }
   
-  .option-name-hint {
+  .option-name-hint,
+  .separator-hint {
     margin-top: var(--el-spacing-sm);
     
     .hint-text {
