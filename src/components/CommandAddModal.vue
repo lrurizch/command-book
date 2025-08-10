@@ -944,28 +944,29 @@
           <h4>参数配置</h4>
         </div>
         
-        <!-- 选项与参数间分隔符 -->
-        <div class="form-group">
-          <label class="form-label">选项与参数间分隔符</label>
-          <div class="separator-input-wrapper">
-            <el-input
-              v-model="newOptionForm.optionSeparator"
-              placeholder="分隔符"
-              maxlength="5"
-              class="option-separator-input"
-            />
-            <span class="separator-hint-inline">{{ optionSeparatorDescription }}</span>
+        <!-- 选项与参数间分隔符和参数名称 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">选项与参数间分隔符</label>
+            <div class="separator-input-wrapper">
+              <el-input
+                v-model="newOptionForm.optionSeparator"
+                placeholder="分隔符"
+                maxlength="5"
+                class="option-separator-input"
+              />
+              <span class="separator-hint-inline">{{ optionSeparatorDescription }}</span>
+            </div>
           </div>
-        </div>
-        
-        <!-- 参数名称 -->
-        <div class="form-group">
-          <label class="form-label">参数名称</label>
-          <el-input
-            v-model="newOptionForm.parameterName"
-            placeholder="输入参数名称"
-            class="parameter-name-input"
-          />
+          
+          <div class="form-group">
+            <label class="form-label">参数名称</label>
+            <el-input
+              v-model="newOptionForm.parameterName"
+              placeholder="输入参数名称"
+              class="parameter-name-input"
+            />
+          </div>
         </div>
         
 
@@ -1008,7 +1009,7 @@
                       @click="setDefaultValue(index, valueIndex)"
                       class="default-btn"
                     >
-                      {{ param.defaultValue === commonValue ? '默认' : '设为默认' }}
+                      默认
                     </el-button>
                     <el-button
                       type="text"
@@ -1043,7 +1044,7 @@
             @click="addNewOptionParameter"
             icon="Plus"
           >
-            添加参数
+            添加常用参数值
           </el-button>
         </div>
       </div>
