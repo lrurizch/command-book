@@ -975,10 +975,10 @@
         </div>
         
         <div class="form-group">
-          <label class="form-label">选项描述 *</label>
+          <label class="form-label">选项描述</label>
           <el-input
             v-model="newOptionForm.description"
-            placeholder="详细描述这个选项的作用"
+            placeholder="详细描述这个选项的作用（可选）"
             maxlength="100"
           />
         </div>
@@ -2103,10 +2103,7 @@ const confirmAddOption = () => {
     return
   }
   
-  if (!newOptionForm.value.description) {
-    ElMessage.warning('请填写选项描述')
-    return
-  }
+
   
   if (!form.value.options) {
     form.value.options = []
