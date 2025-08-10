@@ -336,7 +336,7 @@ import ParameterModal from '../components/ParameterModal.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import BatchMigrateModal from '../components/BatchMigrateModal.vue'
 import CopyCommandModal from '../components/CopyCommandModal.vue'
-import CommonCommandsModal from '../components/CommonCommandsModal.vue'
+
 import SettingsModal from '../components/SettingsModal.vue'
 
 import { useCommandStore } from '../stores/command'

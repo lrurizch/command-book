@@ -47,6 +47,123 @@
           </div>
         </div>
 
+        <!-- 常用完整命令 -->
+        <div class="form-section">
+          <h3 class="section-title">
+            常用完整命令
+            <span v-if="isEditing && getFieldChanges().commonCommands" class="changed-indicator">已修改</span>
+            <el-tooltip content="添加实际可执行的完整命令，无需参数占位符。最近使用的命令会自动成为默认复制命令" placement="top">
+              <el-icon class="info-icon"><InfoFilled /></el-icon>
+            </el-tooltip>
+          </h3>
+          <div class="section-description">
+            添加基于上面命令模板的具体实例，这些是可以直接执行的完整命令。
+          </div>
+          <div class="common-commands-container">
+            <div 
+              v-for="(cmdExample, index) in form.commonCommands" 
+              :key="index" 
+              class="command-example-item"
+            >
+              <div class="command-example-form">
+                <el-input
+                  v-model="cmdExample.name"
+                  placeholder="命令名称 (如: 提交功能代码, 提交修复代码)"
+                  class="example-name"
+                />
+                <el-input
+                  v-model="cmdExample.command"
+                  type="textarea"
+                  :rows="2"
+                  placeholder="完整可执行命令 (如: git commit -m 'feat: 添加新功能' 或 git commit -m 'fix: 修复登录问题')"
+                  class="example-command"
+                />
+                <el-input
+                  v-model="cmdExample.description"
+                  placeholder="使用场景说明 (可选)"
+                  class="example-description"
+                />
+                <div class="command-actions">
+                  <el-checkbox 
+                    v-model="cmdExample.isDefault" 
+                    :disabled="getDefaultCommandCount() > 0 && !cmdExample.isDefault"
+                    @change="handleDefaultChange(index, $event)"
+                  >
+                    设为默认
+                  </el-checkbox>
+                  <el-button
+                    type="danger"
+                    text
+                    @click="removeCommonCommand(index)"
+                    title="删除常用命令"
+                  >
+                    ×
+                  </el-button>
+                </div>
+              </div>
+            </div>
+            <el-button
+              type="primary"
+              text
+              @click="addCommonCommand"
+              icon="Plus"
+            >
+              + 添加常用完整命令
+            </el-button>
+          </div>
+          <!-- 显示原始常用命令对比 -->
+          <div v-if="isEditing && getFieldChanges().commonCommands" class="comparison-info">
+            <div class="original-value">
+              <span class="label">原始常用命令:</span>
+              <div class="original-common-commands">{{ getOriginalCommonCommandsDisplay() }}</div>
+              <el-button 
+                type="text" 
+                size="small" 
+                @click="restoreField('commonCommands')"
+                class="restore-btn"
+                title="恢复到原始值"
+              >
+                ↺ 恢复
+              </el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="form-group">
+          <label for="command-usage" class="form-label">
+            使用说明
+            <span v-if="isEditing && getFieldChanges().usage" class="changed-indicator">已修改</span>
+          </label>
+          <el-input
+            id="command-usage"
+            v-model="form.usage"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            placeholder="详细的使用说明和注意事项"
+            :class="{ 'field-changed': isEditing && getFieldChanges().usage }"
+          />
+          <!-- 显示原始值对比 -->
+          <div v-if="isEditing && getFieldChanges().usage" class="comparison-info">
+            <div class="original-value">
+              <span class="label">原始值:</span>
+              <span class="original-text">{{ originalData.usage || '无' }}</span>
+              <el-button 
+                type="text" 
+                size="small" 
+                @click="restoreField('usage')"
+                class="restore-btn"
+                title="恢复到原始值"
+              >
+                ↺ 恢复
+              </el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 分类和标签 -->
+
         <div class="form-group">
           <label for="main-command" class="form-label">
             主命令 <span class="required">*</span>
@@ -141,110 +258,11 @@
           </div>
         </div>
         
-        <div class="form-group">
-          <label for="command-content" class="form-label">
-            完整命令模板 <span class="required">*</span>
-            <span v-if="isEditing && getFieldChanges().command" class="changed-indicator">已修改</span>
-          </label>
-          <el-input
-            id="command-content"
-            v-model="form.command"
-            type="textarea"
-            :rows="4"
-            placeholder="输入命令模板，使用 {{参数名}} 表示参数占位符，如: git commit -m {{message}}"
-            @input="analyzeCommand"
-            class="command-input"
-            :class="{ 'field-changed': isEditing && getFieldChanges().command }"
-          />
-          <!-- 显示原始值对比 -->
-          <div v-if="isEditing && getFieldChanges().command" class="comparison-info">
-            <div class="original-value">
-              <span class="label">原始值:</span>
-              <pre class="original-text">{{ originalData.command }}</pre>
-              <el-button 
-                type="text" 
-                size="small" 
-                @click="restoreField('command')"
-                class="restore-btn"
-                title="恢复到原始值"
-              >
-                ↺ 恢复
-              </el-button>
-            </div>
-          </div>
-          <div class="command-help">
-            <div class="help-item">
-              💡 提示: 使用 <code>{{参数名}}</code> 创建参数占位符
-            </div>
-            <div class="help-item">
-              📝 示例: <code>git commit -m "{{message}}"</code>
-            </div>
-          </div>
-        </div>
+
         
-        <div class="form-group">
-          <label for="command-description" class="form-label">
-            作用
-            <span v-if="isEditing && getFieldChanges().description" class="changed-indicator">已修改</span>
-          </label>
-          <el-input
-            id="command-description"
-            v-model="form.description"
-            type="textarea"
-            :rows="2"
-            maxlength="200"
-            placeholder="描述这个命令的作用和用途"
-            :class="{ 'field-changed': isEditing && getFieldChanges().description }"
-          />
-          <!-- 显示原始值对比 -->
-          <div v-if="isEditing && getFieldChanges().description" class="comparison-info">
-            <div class="original-value">
-              <span class="label">原始值:</span>
-              <span class="original-text">{{ originalData.description || '无' }}</span>
-              <el-button 
-                type="text" 
-                size="small" 
-                @click="restoreField('description')"
-                class="restore-btn"
-                title="恢复到原始值"
-              >
-                ↺ 恢复
-              </el-button>
-            </div>
-          </div>
-        </div>
+
         
-        <div class="form-group">
-          <label for="command-usage" class="form-label">
-            使用说明
-            <span v-if="isEditing && getFieldChanges().usage" class="changed-indicator">已修改</span>
-          </label>
-          <el-input
-            id="command-usage"
-            v-model="form.usage"
-            type="textarea"
-            :rows="3"
-            maxlength="500"
-            placeholder="详细的使用说明和注意事项"
-            :class="{ 'field-changed': isEditing && getFieldChanges().usage }"
-          />
-          <!-- 显示原始值对比 -->
-          <div v-if="isEditing && getFieldChanges().usage" class="comparison-info">
-            <div class="original-value">
-              <span class="label">原始值:</span>
-              <span class="original-text">{{ originalData.usage || '无' }}</span>
-              <el-button 
-                type="text" 
-                size="small" 
-                @click="restoreField('usage')"
-                class="restore-btn"
-                title="恢复到原始值"
-              >
-                ↺ 恢复
-              </el-button>
-            </div>
-          </div>
-        </div>
+
         
         <div class="form-row">
           <div class="form-group">
@@ -646,87 +664,7 @@
         </div>
       </div>
 
-      <!-- 常用完整命令 -->
-      <div class="form-section">
-        <h3 class="section-title">
-          常用完整命令
-          <span v-if="isEditing && getFieldChanges().commonCommands" class="changed-indicator">已修改</span>
-          <el-tooltip content="添加实际可执行的完整命令，无需参数占位符。最近使用的命令会自动成为默认复制命令" placement="top">
-            <el-icon class="info-icon"><InfoFilled /></el-icon>
-          </el-tooltip>
-        </h3>
-        <div class="section-description">
-          添加基于上面命令模板的具体实例，这些是可以直接执行的完整命令。
-        </div>
-        <div class="common-commands-container">
-          <div 
-            v-for="(cmdExample, index) in form.commonCommands" 
-            :key="index" 
-            class="command-example-item"
-          >
-            <div class="command-example-form">
-              <el-input
-                v-model="cmdExample.name"
-                placeholder="命令名称 (如: 提交功能代码, 提交修复代码)"
-                class="example-name"
-              />
-              <el-input
-                v-model="cmdExample.command"
-                type="textarea"
-                :rows="2"
-                placeholder="完整可执行命令 (如: git commit -m 'feat: 添加新功能' 或 git commit -m 'fix: 修复登录问题')"
-                class="example-command"
-              />
-              <el-input
-                v-model="cmdExample.description"
-                placeholder="使用场景说明 (可选)"
-                class="example-description"
-              />
-              <div class="command-actions">
-                <el-checkbox 
-                  v-model="cmdExample.isDefault" 
-                  :disabled="getDefaultCommandCount() > 0 && !cmdExample.isDefault"
-                  @change="handleDefaultChange(index, $event)"
-                >
-                  设为默认
-                </el-checkbox>
-                <el-button
-                  type="danger"
-                  text
-                  @click="removeCommonCommand(index)"
-                  title="删除常用命令"
-                >
-                  ×
-                </el-button>
-              </div>
-            </div>
-          </div>
-          <el-button
-            type="primary"
-            text
-            @click="addCommonCommand"
-            icon="Plus"
-          >
-            + 添加常用完整命令
-          </el-button>
-        </div>
-        <!-- 显示原始常用命令对比 -->
-                  <div v-if="isEditing && getFieldChanges().commonCommands" class="comparison-info">
-            <div class="original-value">
-              <span class="label">原始常用命令:</span>
-              <div class="original-common-commands">{{ getOriginalCommonCommandsDisplay() }}</div>
-              <el-button 
-                type="text" 
-                size="small" 
-                @click="restoreField('commonCommands')"
-                class="restore-btn"
-                title="恢复到原始值"
-              >
-                ↺ 恢复
-              </el-button>
-            </div>
-          </div>
-      </div>
+
 
       <!-- 分隔符/运算符 -->
       <div class="form-section">
