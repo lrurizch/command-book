@@ -949,10 +949,8 @@
               <span class="option-prefix">-</span>
               <el-input
                 v-model="newOptionForm.shortName"
-                placeholder="h, v, f"
+                placeholder="h, v, la, rf"
                 clearable
-                maxlength="1"
-                show-word-limit
               />
             </div>
           </div>
@@ -964,7 +962,6 @@
                 v-model="newOptionForm.longName"
                 placeholder="help, version, file"
                 clearable
-                maxlength="20"
               />
             </div>
           </div>
@@ -973,7 +970,7 @@
         <div class="option-name-hint">
           <span class="hint-text">
             <span v-if="!newOptionForm.shortName && !newOptionForm.longName" class="required-hint">⚠ </span>
-            请填写短选项名（单字符，如 -h）或长选项名（多字符，如 --help），至少选择其中一个。前缀横线会自动添加。
+            请填写短选项名（如 -h、-la）或长选项名（如 --help、--verbose），至少选择其中一个。前缀横线会自动添加。
           </span>
         </div>
         
