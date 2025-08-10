@@ -382,7 +382,7 @@
               :title="availableOptionsForMutex.length < 2 ? '至少需要两个选项才能设置互斥关系' : '从已有选项中设置互斥关系'"
             >
               设置互斥选项
-            </el-button>
+          </el-button>
           </div>
         </div>
         <!-- 显示原始选项对比 -->
@@ -447,7 +447,7 @@
             @click="addCommonParam"
             icon="Plus"
           >
-            + 添加常用参数
+            + 添加参数组合
           </el-button>
         </div>
         <!-- 显示原始常用参数对比 -->
@@ -672,9 +672,6 @@
             
               <div class="option-description">
                 {{ option.description || '暂无描述' }}
-                <span v-if="(option.valueType === ParameterValueType.REQUIRED || option.valueType === ParameterValueType.OPTIONAL) && option.defaultValue" class="default-value-info">
-                  （默认值：{{ option.defaultValue }}）
-                </span>
               </div>
               
               <div v-if="shouldShowParametersForOption(option)" class="option-params">
@@ -761,9 +758,6 @@
                     
                     <div class="option-description">
                       {{ option.description || '暂无描述' }}
-                      <span v-if="(option.valueType === ParameterValueType.REQUIRED || option.valueType === ParameterValueType.OPTIONAL) && option.defaultValue" class="default-value-info">
-                        （默认值：{{ option.defaultValue }}）
-                      </span>
                     </div>
                     
                     <div v-if="shouldShowParametersForOption(option)" class="option-params">
@@ -814,7 +808,7 @@
               :title="availableOptionsForMutex.length < 2 ? '至少需要两个选项才能设置互斥关系' : '从已有选项中设置互斥关系'"
             >
               设置互斥选项
-            </el-button>
+          </el-button>
           </div>
         </div>
         
@@ -888,7 +882,7 @@
             <div class="parameter-header">
               <el-input
                 v-model="param.name"
-                placeholder="参数名"
+                placeholder="参数"
                 class="param-name-input"
               />
               <el-button
@@ -919,13 +913,13 @@
                 </div>
                 
                 <div class="form-group">
-                  <el-radio 
-                    v-model="defaultCommandParam"
-                    :value="index"
+                  <el-checkbox 
+                    :model-value="defaultCommandParam === index"
+                    @change="(checked) => handleDefaultCommandParamChange(index, checked)"
                     class="param-default-checkbox"
                   >
                     默认参数
-                  </el-radio>
+                  </el-checkbox>
                 </div>
               </div>
             </div>
@@ -1167,18 +1161,7 @@
               <el-radio :value="ParameterValueType.NONE">不可带参数</el-radio>
             </el-radio-group>
             
-            <!-- 参数默认值设置 -->
-            <div v-if="newOptionForm.valueType === ParameterValueType.REQUIRED || newOptionForm.valueType === ParameterValueType.OPTIONAL" class="default-value-setting">
-              <label class="form-label">默认值</label>
-              <el-input
-                v-model="newOptionForm.defaultValue"
-                :placeholder="newOptionForm.valueType === ParameterValueType.OPTIONAL ? '不带参数时的默认值' : '参数的默认值'"
-                clearable
-              />
-              <span class="form-help">
-                {{ newOptionForm.valueType === ParameterValueType.OPTIONAL ? '当选项不带参数时使用此默认值' : '参数的默认值' }}
-              </span>
-            </div>
+
           </div>
         </div>
       </div>
@@ -1187,18 +1170,10 @@
       <div v-if="shouldShowParameterConfig" class="form-section">
         <div class="section-header">
           <h4>参数配置</h4>
-          <el-button 
-            size="small" 
-            type="primary" 
-            @click="showCommonParamsModal()"
-            icon="Plus"
-          >
-            添加常用参数
-          </el-button>
         </div>
         
         <div v-if="newOptionForm.parameters.length === 0" class="empty-params">
-          <p>暂无参数，点击上方"添加常用参数"快速添加，或手动添加参数</p>
+          <p>暂无参数，点击下方"添加参数"按钮添加参数</p>
         </div>
         
         <div v-else class="params-list">
@@ -1209,7 +1184,7 @@
           >
             <el-input
               v-model="param.name"
-              placeholder="参数名"
+              placeholder="参数"
               class="param-name"
             />
             <el-input
@@ -1217,13 +1192,13 @@
               placeholder="参数描述"
               class="param-desc"
             />
-            <el-radio 
-              v-model="defaultOptionParam" 
-              :value="index"
+            <el-checkbox 
+              :model-value="defaultOptionParam === index"
+              @change="(checked) => handleDefaultOptionParamChange(index, checked)"
               class="param-default"
             >
               默认参数
-            </el-radio>
+            </el-checkbox>
             <el-button
               type="danger"
               size="small"
@@ -1239,7 +1214,7 @@
           @click="addNewOptionParameter"
           icon="Plus"
         >
-          手动添加参数
+          添加参数
         </el-button>
       </div>
     </div>
@@ -2078,7 +2053,6 @@ const newOptionForm = ref({
   description: '',
   type: ParameterType.OPTIONAL,
   valueType: ParameterValueType.REQUIRED, // 默认必带参数
-  defaultValue: '', // 可选参数的默认值
   parameters: []
 })
 
@@ -2105,7 +2079,6 @@ const addOption = () => {
     description: '',
     type: ParameterType.OPTIONAL,        // 默认可选选项
     valueType: ParameterValueType.REQUIRED, // 默认必带参数
-    defaultValue: '', // 可选参数的默认值
     parameters: []
   }
   defaultOptionParam.value = null // 重置默认参数选择
@@ -2217,8 +2190,7 @@ const editOption = (optionIndex) => {
   
   newOptionForm.value = { 
     ...option,
-    valueType: valueType,
-    defaultValue: option.defaultValue || '' // 确保defaultValue字段存在
+    valueType: valueType
   }
   
   // 恢复默认参数选择
@@ -2256,11 +2228,6 @@ const confirmAddOption = () => {
   // 清理数据：确保只使用新的数据结构
   const cleanedOption = { ...newOptionForm.value }
   delete cleanedOption.hasValue // 移除旧字段
-  
-  // 如果是不可带参数，清空默认值
-  if (cleanedOption.valueType === ParameterValueType.NONE) {
-    cleanedOption.defaultValue = ''
-  }
   
   // 处理默认参数设置
   if (cleanedOption.parameters) {
@@ -2476,6 +2443,30 @@ const isDefaultParam = (param, paramIndex, option) => {
   } else {
     // 这是命令级参数
     return defaultCommandParam.value === paramIndex
+  }
+}
+
+// 处理选项参数默认选择变化
+const handleDefaultOptionParamChange = (index, checked) => {
+  if (checked) {
+    defaultOptionParam.value = index
+  } else {
+    // 如果取消选择当前默认参数，则清空选择
+    if (defaultOptionParam.value === index) {
+      defaultOptionParam.value = null
+    }
+  }
+}
+
+// 处理命令级参数默认选择变化
+const handleDefaultCommandParamChange = (index, checked) => {
+  if (checked) {
+    defaultCommandParam.value = index
+  } else {
+    // 如果取消选择当前默认参数，则清空选择
+    if (defaultCommandParam.value === index) {
+      defaultCommandParam.value = null
+    }
   }
 }
 
@@ -3339,11 +3330,6 @@ watch(() => props.editingCommand, (newCommand) => {
     font-size: var(--el-font-size-small);
     line-height: 1.4;
     margin-bottom: var(--el-spacing-sm);
-    
-    .default-value-info {
-      color: var(--el-color-warning-dark-2);
-      font-weight: 500;
-    }
   }
   
   .option-params {
@@ -3433,20 +3419,7 @@ watch(() => props.editingCommand, (newCommand) => {
   }
   }
   
-  .default-value-setting {
-    margin-top: var(--el-spacing-md);
-    padding: var(--el-spacing-md);
-    background: var(--el-color-warning-light-9);
-    border-radius: var(--el-border-radius-base);
-    border-left: 3px solid var(--el-color-warning);
-    
-    .form-help {
-      display: block;
-      margin-top: var(--el-spacing-xs);
-      font-size: var(--el-font-size-extra-small);
-      color: var(--el-text-color-secondary);
-    }
-  }
+
   
   .option-name-input {
     display: flex;
