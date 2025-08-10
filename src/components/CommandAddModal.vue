@@ -964,11 +964,7 @@
           </span>
         </div>
         
-        <div v-if="newOptionForm.parameters.length === 0" class="empty-params">
-          <p>暂无参数，点击下方"添加参数"按钮添加参数</p>
-        </div>
-        
-        <div v-else class="params-list">
+        <div v-if="newOptionForm.parameters.length > 0" class="params-list">
           <div
             v-for="(param, index) in newOptionForm.parameters"
             :key="`new-param-${index}`"
