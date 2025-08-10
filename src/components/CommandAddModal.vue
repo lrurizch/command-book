@@ -625,6 +625,18 @@
         </h3>
         <p class="section-description">配置直接跟在命令后的位置参数，如文件路径、目标地址等</p>
         
+        <!-- 命令与参数间分隔符 -->
+        <div class="form-group">
+          <label class="form-label">命令与参数间分隔符</label>
+          <el-input
+            v-model="form.commandParameterSeparator"
+            placeholder="空格"
+            maxlength="5"
+            class="command-parameter-separator-input"
+          />
+          <span class="form-help">命令与参数之间的分隔符，默认为空格</span>
+        </div>
+        
         <div v-if="detectedParameters.length > 0" class="detected-params">
           <div class="detected-params-header">
             <span>检测到的参数:</span>
@@ -893,6 +905,19 @@
     <div class="add-option-form">
       <div class="form-section">
         <h4>基本信息</h4>
+        
+        <!-- 命令与选项间分隔符 -->
+        <div class="form-group">
+          <label class="form-label">命令与选项间分隔符</label>
+          <el-input
+            v-model="newOptionForm.commandSeparator"
+            placeholder="空格"
+            maxlength="5"
+            class="command-separator-input"
+          />
+          <span class="form-help">命令与此选项之间的分隔符，默认为空格</span>
+        </div>
+        
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">短选项名</label>
@@ -958,6 +983,18 @@
       <div v-if="shouldShowParameterConfig" class="form-section">
         <div class="section-header">
           <h4>参数配置</h4>
+        </div>
+        
+        <!-- 选项与参数间分隔符 -->
+        <div class="form-group">
+          <label class="form-label">选项与参数间分隔符</label>
+          <el-input
+            v-model="newOptionForm.optionSeparator"
+            placeholder="空格"
+            maxlength="5"
+            class="option-separator-input"
+          />
+          <span class="form-help">此选项与参数之间的分隔符，默认为空格</span>
         </div>
         
         <div v-if="newOptionForm.parameters.length === 0" class="empty-params">
@@ -1436,7 +1473,8 @@ const resetForm = () => {
     options: [],
     commonParameters: [],
     commonCommands: [],
-    separators: []
+    separators: [],
+    commandParameterSeparator: ' '  // 命令与参数间分隔符，默认空格
   }
   detectedParameters.value = []
 }
@@ -1879,6 +1917,8 @@ const addOption = () => {
     description: '',
     type: ParameterType.OPTIONAL,        // 默认可选选项
     valueType: ParameterValueType.REQUIRED, // 默认必带参数
+    commandSeparator: ' ',              // 命令与选项间分隔符，默认空格
+    optionSeparator: ' ',               // 选项与参数间分隔符，默认空格
     parameters: []
   }
   defaultOptionParam.value = null // 重置默认参数选择
@@ -1991,7 +2031,9 @@ const editOption = (optionIndex) => {
   
   newOptionForm.value = { 
     ...option,
-    valueType: valueType
+    valueType: valueType,
+    commandSeparator: option.commandSeparator || ' ',  // 确保有默认值
+    optionSeparator: option.optionSeparator || ' '     // 确保有默认值
   }
   
   // 恢复默认参数选择
@@ -2406,7 +2448,8 @@ watch(() => props.editingCommand, (newCommand) => {
       options: newCommand.options ? [...newCommand.options] : [],
       commonParameters: newCommand.commonParameters ? [...newCommand.commonParameters] : [],
       commonCommands: newCommand.commonCommands ? [...newCommand.commonCommands] : [],
-      separators: newCommand.separators ? [...newCommand.separators] : []
+      separators: newCommand.separators ? [...newCommand.separators] : [],
+      commandParameterSeparator: newCommand.commandParameterSeparator || ' '  // 确保有默认值
     }
     
     form.value = { ...commandData }
@@ -3300,6 +3343,12 @@ watch(() => props.editingCommand, (newCommand) => {
   
   .param-separator-input {
     max-width: 100px;
+  }
+  
+  .command-separator-input,
+  .option-separator-input,
+  .command-parameter-separator-input {
+    max-width: 120px;
   }
   
   .param-tag {
