@@ -48,7 +48,7 @@
         </div>
 
         <!-- 常用完整命令 -->
-        <div class="form-section">
+        <div class="form-section common-commands-section">
           <h3 class="section-title">
             常用完整命令
             <span v-if="isEditing && getFieldChanges().commonCommands" class="changed-indicator">已修改</span>
@@ -313,8 +313,8 @@
         </div>
       </div>
 
-        <!-- 子命令管理 -->
-        <div class="form-section">
+              <!-- 子命令管理 -->
+      <div class="form-section subcommands-section">
           <h3 class="section-title">
             子命令
             <span v-if="isEditing && getFieldChanges().subcommands" class="changed-indicator">已修改</span>
@@ -383,7 +383,7 @@
 
 
       <!-- 命令选项 -->
-      <div class="form-section">
+      <div class="form-section options-section">
         <h3 class="section-title">
           命令选项
           <span v-if="isEditing && getFieldChanges().options" class="changed-indicator">已修改</span>
@@ -618,7 +618,7 @@
 
 
       <!-- 符号 -->
-      <div class="form-section">
+      <div class="form-section symbols-section">
         <h3 class="section-title">
           符号
           <span v-if="isEditing && getFieldChanges().symbols" class="changed-indicator">已修改</span>
@@ -865,7 +865,7 @@
     width="700px"
   >
     <div class="add-option-form">
-      <div class="form-section">
+      <div class="form-section dialog-form-section">
         <h4>基本信息</h4>
         
         <!-- 命令与选项间分隔符 -->
@@ -945,7 +945,7 @@
       </div>
       
       <!-- 参数配置区域 -->
-      <div v-if="shouldShowParameterConfig" class="form-section">
+      <div v-if="shouldShowParameterConfig" class="form-section dialog-form-section">
         <div class="section-header">
           <h4>参数配置</h4>
         </div>
@@ -3702,29 +3702,25 @@ watch(() => props.editingCommand, (newCommand) => {
     padding: var(--el-spacing-md) 0;
   }
   
-  /* 基本信息区域样式 */
-  .basic-info-section {
-    background: var(--el-bg-color);
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: var(--el-border-radius-base);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  /* 强制统一所有表单区域样式 */
+  .basic-info-section,
+  .common-commands-section,
+  .subcommands-section,
+  .options-section,
+  .parameters-section,
+  .symbols-section,
+  .dialog-form-section {
+    background: var(--el-bg-color) !important;
+    border: 1px solid var(--el-border-color-lighter) !important;
+    border-radius: var(--el-border-radius-base) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+    padding: var(--el-spacing-lg) !important;
+    margin-bottom: var(--el-spacing-xl) !important;
+    transition: all var(--el-transition-duration) !important;
     
     &:hover {
-      border-color: var(--el-border-color-light);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-    }
-  }
-
-  /* 命令参数区域样式 */
-  .parameters-section {
-    background: var(--el-bg-color);
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: var(--el-border-radius-base);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-    
-    &:hover {
-      border-color: var(--el-border-color-light);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+      border-color: var(--el-border-color-light) !important;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08) !important;
     }
   }
 
