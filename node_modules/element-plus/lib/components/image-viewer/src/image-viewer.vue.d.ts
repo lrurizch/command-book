@@ -81,8 +81,8 @@ declare const __VLS_component: import("vue").DefineComponent<{
 }, {
     readonly infinite: import("element-plus/es/utils").EpPropMergeType<BooleanConstructor, unknown, unknown>;
     readonly teleported: boolean;
-    readonly initialIndex: number;
     readonly closeOnPressEscape: import("element-plus/es/utils").EpPropMergeType<BooleanConstructor, unknown, unknown>;
+    readonly initialIndex: number;
     readonly urlList: string[];
     readonly zoomRate: number;
     readonly minScale: number;
