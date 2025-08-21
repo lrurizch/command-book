@@ -1550,121 +1550,209 @@ export const useCommandStore = defineStore('command', () => {
    */
   const initializeData = () => {
     try {
-      // 创建内置简单模板示例
-      const simpleTemplates = [
+      // 添加基础命令
+      const baseCommands = [
+        // Git 命令
         {
-          id: 'template-git',
-          name: 'Git 常用命令',
-          description: 'Git 版本控制常用命令模板',
-          category: 'version-control',
-          tags: ['git', '版本控制'],
-          templateData: {
-            name: 'git',
-            category: 'version-control',
-            tags: ['git', '版本控制'],
-            subcommands: [
-              { name: 'add', description: '添加文件到暂存区' },
-              { name: 'commit', description: '提交更改' },
-              { name: 'push', description: '推送到远程仓库' },
-              { name: 'pull', description: '拉取远程更改' }
-            ],
-            options: [
-              { name: 'message', shortFlag: '-m', description: '提交消息' },
-              { name: 'all', shortFlag: '-a', description: '添加所有文件' }
-            ],
-            parameters: [
-              { 
-                name: 'file', 
-                commonValues: [
-                  { value: '*.js' },
-                  { value: '*.vue' },
-                  { value: '.' }
-                ], 
-                defaultValueIndex: 2, 
-                required: false 
-              },
-              { 
-                name: 'branch', 
-                commonValues: [
-                  { value: 'main' },
-                  { value: 'master' },
-                  { value: 'develop' }
-                ], 
-                defaultValueIndex: 0, 
-                required: false 
-              }
-            ],
-            commonCommands: [
-              { name: '提交所有更改', command: 'git add . && git commit -m "提交消息"' },
-              { name: '推送到远程', command: 'git push origin main' }
-            ]
-          },
+          id: generateId(),
+          name: 'Git 初始化仓库',
+          command: 'git init',
+          description: '在当前目录初始化Git仓库',
+          category: 'git-basic',
+          tags: ['git', 'init', '初始化'],
+          parameters: [],
           isUserCreated: false,
-          isSystemExample: true,
-          created: new Date(),
-          updated: new Date()
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
         },
         {
-          id: 'template-npm',
-          name: 'NPM 包管理',
-          description: 'NPM 包管理常用命令模板',
-          category: 'package-manager',
-          tags: ['npm', '包管理'],
-          templateData: {
-            name: 'npm',
-            category: 'package-manager',
-            tags: ['npm', '包管理'],
-            subcommands: [
-              { name: 'install', description: '安装依赖包' },
-              { name: 'run', description: '运行脚本' },
-              { name: 'start', description: '启动应用' }
-            ],
-            options: [
-              { name: 'save', shortFlag: '-S', description: '保存到dependencies' },
-              { name: 'dev', shortFlag: '-D', description: '保存到devDependencies' }
-            ],
-            parameters: [
-              { 
-                name: 'package', 
-                commonValues: [
-                  { value: 'vue' },
-                  { value: 'react' },
-                  { value: 'axios' }
-                ], 
-                defaultValueIndex: -1, 
-                required: true 
-              },
-              { 
-                name: 'script', 
-                commonValues: [
-                  { value: 'dev' },
-                  { value: 'start' },
-                  { value: 'build' }
-                ], 
-                defaultValueIndex: 1, 
-                required: false 
-              }
-            ],
-            commonCommands: [
-              { name: '安装依赖', command: 'npm install' },
-              { name: '启动开发服务器', command: 'npm run dev' }
-            ]
-          },
+          id: generateId(),
+          name: 'Git 克隆仓库',
+          command: 'git clone {{url}}',
+          description: '从远程仓库克隆代码',
+          category: 'git-basic',
+          tags: ['git', 'clone', '克隆'],
+          parameters: [
+            { name: 'url', description: '仓库地址', required: true, defaultValue: '', commonValues: [] }
+          ],
           isUserCreated: false,
-          isSystemExample: true,
-          created: new Date(),
-          updated: new Date()
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'Git 查看状态',
+          command: 'git status',
+          description: '查看当前仓库状态',
+          category: 'git-basic',
+          tags: ['git', 'status', '状态'],
+          parameters: [],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'Git 添加文件',
+          command: 'git add {{files}}',
+          description: '添加文件到暂存区',
+          category: 'git-basic',
+          tags: ['git', 'add', '暂存'],
+          parameters: [
+            { name: 'files', description: '文件路径', required: false, defaultValue: '.', commonValues: ['.', '*.js', '*.vue'] }
+          ],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'Git 提交更改',
+          command: 'git commit -m "{{message}}"',
+          description: '提交暂存区的更改',
+          category: 'git-basic',
+          tags: ['git', 'commit', '提交'],
+          parameters: [
+            { name: 'message', description: '提交消息', required: true, defaultValue: '', commonValues: ['feat: 新功能', 'fix: 修复bug', 'docs: 更新文档'] }
+          ],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'Git 查看分支',
+          command: 'git branch -a',
+          description: '查看所有分支（本地和远程）',
+          category: 'git-branch',
+          tags: ['git', 'branch', '分支'],
+          parameters: [],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'Git 切换分支',
+          command: 'git checkout {{branch}}',
+          description: '切换到指定分支',
+          category: 'git-branch',
+          tags: ['git', 'checkout', '切换'],
+          parameters: [
+            { name: 'branch', description: '分支名称', required: true, defaultValue: '', commonValues: ['main', 'master', 'develop'] }
+          ],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'Git 推送到远程',
+          command: 'git push origin {{branch}}',
+          description: '推送本地分支到远程仓库',
+          category: 'git-remote',
+          tags: ['git', 'push', '推送'],
+          parameters: [
+            { name: 'branch', description: '分支名称', required: false, defaultValue: 'main', commonValues: ['main', 'master', 'develop'] }
+          ],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        
+        // Docker 命令
+        {
+          id: generateId(),
+          name: 'Docker 查看容器',
+          command: 'docker ps -a',
+          description: '列出所有Docker容器',
+          category: 'docker',
+          tags: ['docker', 'ps', '容器'],
+          parameters: [],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'Docker 运行容器',
+          command: 'docker run -d --name {{name}} {{image}}',
+          description: '以守护进程模式运行Docker容器',
+          category: 'docker',
+          tags: ['docker', 'run', '运行'],
+          parameters: [
+            { name: 'name', description: '容器名称', required: true, defaultValue: '', commonValues: [] },
+            { name: 'image', description: '镜像名称', required: true, defaultValue: '', commonValues: ['nginx', 'mysql', 'redis'] }
+          ],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        
+        // NPM 命令
+        {
+          id: generateId(),
+          name: 'NPM 安装依赖',
+          command: 'npm install',
+          description: '安装package.json中的所有依赖',
+          category: 'npm',
+          tags: ['npm', 'install', '依赖'],
+          parameters: [],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'NPM 安装包',
+          command: 'npm install {{package}}',
+          description: '安装指定的NPM包',
+          category: 'npm',
+          tags: ['npm', 'install', '包'],
+          parameters: [
+            { name: 'package', description: '包名称', required: true, defaultValue: '', commonValues: ['vue', 'react', 'lodash', 'axios'] }
+          ],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
+        },
+        {
+          id: generateId(),
+          name: 'NPM 运行脚本',
+          command: 'npm run {{script}}',
+          description: '运行package.json中定义的脚本',
+          category: 'npm',
+          tags: ['npm', 'run', '脚本'],
+          parameters: [
+            { name: 'script', description: '脚本名称', required: true, defaultValue: '', commonValues: ['dev', 'build', 'test', 'start'] }
+          ],
+          isUserCreated: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          usageCount: 0
         }
       ]
       
-      commands.value.push(...simpleTemplates)
+      commands.value.push(...baseCommands)
       
       // 如果没有用户数据，创建初始示例
       if (commands.value.filter(cmd => cmd.isUserCreated).length === 0) {
         createInitialUserData()
       }
       
-      console.log(`已加载 ${simpleTemplates.length} 个系统模板`)
+      console.log(`已加载 ${baseCommands.length} 个基础命令`)
       
     } catch (error) {
       console.error('初始化命令数据失败:', error)
