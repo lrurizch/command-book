@@ -478,21 +478,22 @@
               class="parameter-item"
           >
               <div class="parameter-header">
-                <span class="parameter-index">{{ index + 1 }}</span>
-              <el-input
+                <el-input
                   v-model="param.name"
                   placeholder="参数名称"
                   class="parameter-name"
-              />
-              <el-button
-                type="danger"
-                text
+                  size="small"
+                />
+                <el-button
+                  type="danger"
+                  text
                   @click="removeParameter(index)"
                   title="删除参数"
-              >
+                  class="delete-param-btn"
+                >
                   <el-icon><Delete /></el-icon>
-              </el-button>
-            </div>
+                </el-button>
+              </div>
               
                              <div class="parameter-body">
                  <!-- 常用参数值列表 -->
@@ -991,7 +992,7 @@
             class="param-item"
           >
             <div class="param-header">
-              <span class="param-title">常用参数值 #{{ index + 1 }}</span>
+              <span class="param-title">常用参数值</span>
               <el-button
                 type="danger"
                 size="small"
@@ -3889,22 +3890,14 @@ watch(() => props.editingCommand, (newCommand) => {
           background: var(--el-fill-color-lighter);
           border-bottom: 1px solid var(--el-border-color-lighter);
           
-          .parameter-index {
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--el-color-primary);
-            color: white;
-            border-radius: 50%;
-            font-size: var(--el-font-size-small);
-            font-weight: 500;
-            flex-shrink: 0;
+          .parameter-name {
+            flex: 0 0 200px;
+            max-width: 200px;
           }
           
-          .parameter-name {
-            flex: 1;
+          .delete-param-btn {
+            flex-shrink: 0;
+            margin-left: auto;
           }
         }
         
