@@ -1636,47 +1636,6 @@ const handleClose = () => {
 }
 
 const saveCommand = async () => {
-  // 创建命令模板数据
-  const templateData = {
-    name: form.value.mainCommand.trim(),
-    category: form.value.category || 'custom',
-    tags: form.value.tags || [],
-    subcommands: form.value.subcommands || [],
-    options: form.value.options || [],
-    parameters: form.value.parameters || [],
-    commonCommands: form.value.commonCommands || []
-  }
-  
-  try {
-    const commandData = {
-      id: isEditing.value ? props.editingCommand.id : undefined,
-      name: form.value.commandName.trim(),
-      description: form.value.description || `${form.value.commandName.trim()} 命令模板`,
-      category: form.value.category,
-      tags: form.value.tags,
-      templateData: templateData,
-      isUserCreated: true,
-      isSystemExample: false,
-      created: isEditing.value ? props.editingCommand.created : new Date(),
-      updated: new Date()
-    }
-    
-    if (isEditing.value) {
-      commandStore.updateCommand(props.editingCommand.id, commandData)
-      showSaveSuccess(commandData.name, true)
-    } else {
-      commandStore.addCommand(commandData)
-      showSaveSuccess(commandData.name, false)
-    }
-    
-    emit('saved')
-    return commandData
-  } catch (error) {
-    ElMessage.error(error.message)
-    throw error
-  }
-
-  // 传统模式
   // 如果分类是新的（不存在），先创建分类
   if (form.value.category && !categoryStatus.value.exists) {
     await handleCreateCategory(form.value.category)
@@ -1703,16 +1662,16 @@ const saveCommand = async () => {
   }
 
   try {
-  if (isEditing.value) {
-    commandStore.updateCommand(props.editingCommand.id, commandData)
-    showSaveSuccess(commandData.name, true)
-  } else {
-    commandStore.addCommand(commandData)
-    showSaveSuccess(commandData.name, false)
-  }
+    if (isEditing.value) {
+      commandStore.updateCommand(props.editingCommand.id, commandData)
+      showSaveSuccess(commandData.name, true)
+    } else {
+      commandStore.addCommand(commandData)
+      showSaveSuccess(commandData.name, false)
+    }
 
-  emit('saved')
-  return commandData
+    emit('saved')
+    return commandData
   } catch (error) {
     ElMessage.error(error.message)
     throw error
