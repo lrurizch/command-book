@@ -3883,22 +3883,26 @@ watch(() => props.editingCommand, (newCommand) => {
         }
         
         .parameter-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
           gap: var(--el-spacing-sm);
           padding: var(--el-spacing-md);
           background: var(--el-fill-color-lighter);
           border-bottom: 1px solid var(--el-border-color-lighter);
+          flex-wrap: nowrap !important;
           
           .parameter-name {
-            flex: 0 0 200px;
-            max-width: 200px;
-            min-width: 120px;
+            flex: 0 0 auto !important;
+            width: 200px !important;
+            max-width: 200px !important;
+            min-width: 120px !important;
           }
           
           .delete-param-btn {
-            flex-shrink: 0;
+            flex-shrink: 0 !important;
+            margin-left: 0 !important;
+            align-self: center !important;
           }
         }
         
