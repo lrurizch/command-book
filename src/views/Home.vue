@@ -577,16 +577,25 @@ const totalCommands = computed(() => allFilteredCommands.value.length)
 
 // 搜索功能
 const onSearchInput = () => {
-  // 同步到store
-  commandStore.setSearchQuery(searchQuery.value)
+  console.log('搜索输入:', searchQuery.value) // 调试日志
   
-  // 添加搜索历史（延迟添加，避免频繁操作）
+  // 立即同步到store进行搜索
+  commandStore.currentSearchQuery = searchQuery.value
+  
+  // 延迟添加到搜索历史，避免频繁操作
   if (searchQuery.value.trim()) {
-    setTimeout(() => {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = setTimeout(() => {
       commandStore.setSearchQuery(searchQuery.value)
-    }, 1000)
+    }, 800)
+  } else {
+    // 清空搜索时也要清除定时器
+    clearTimeout(searchDebounceTimer)
   }
 }
+
+// 搜索防抖定时器
+let searchDebounceTimer = null
 
 const handleSearchEnter = () => {
   if (searchQuery.value.trim() && displayCommands.value.length > 0) {
@@ -634,7 +643,7 @@ const clearTags = () => {
 const clearFilters = () => {
   searchQuery.value = ''
   selectedTags.value = []
-  commandStore.setSearchQuery('')
+  commandStore.currentSearchQuery = ''
   commandStore.setSelectedTags([])
 }
 
@@ -645,7 +654,7 @@ watch(() => commandStore.selectedCategory, () => {
   if (searchQuery.value || selectedTags.value.length > 0) {
     searchQuery.value = ''
     selectedTags.value = []
-    commandStore.setSearchQuery('')
+    commandStore.currentSearchQuery = ''
     commandStore.setSelectedTags([])
   }
 })
