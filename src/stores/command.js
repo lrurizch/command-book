@@ -427,24 +427,19 @@ export const useCommandStore = defineStore('command', () => {
     }
     
     const upgradedParameters = command.parameters.map(param => {
-      // 自动分类现有参数
-      const classification = parameterClassifier.classify(param)
-      
       return {
         ...param,
-        // 添加分类信息
-        classification,
         // 添加级别信息（如果未设置）
-        level: param.level || (param.parentOption ? ParameterLevel.OPTION : ParameterLevel.COMMAND),
+        level: param.level || 'command',
         // 添加作用域信息
-        scope: param.scope || (classification.level === ParameterLevel.GLOBAL ? 'global' : 'local'),
+        scope: param.scope || 'local',
         // 添加位置信息
-        position: param.position || (param.parentOption ? 'value' : 'positional'),
+        position: param.position || 'positional',
         // 增强验证规则
         validation: {
           ...param.validation,
           classified: true,
-          rules: classification.rules
+          rules: []
         }
       }
     })
@@ -457,9 +452,9 @@ export const useCommandStore = defineStore('command', () => {
         total: upgradedParameters.length,
         required: upgradedParameters.filter(p => p.required === true).length,
         optional: upgradedParameters.filter(p => p.required === false).length,
-        commandLevel: upgradedParameters.filter(p => p.level === ParameterLevel.COMMAND).length,
-        optionLevel: upgradedParameters.filter(p => p.level === ParameterLevel.OPTION).length,
-        global: upgradedParameters.filter(p => p.level === ParameterLevel.GLOBAL).length
+        commandLevel: upgradedParameters.filter(p => p.level === 'command').length,
+        optionLevel: upgradedParameters.filter(p => p.level === 'option').length,
+        global: upgradedParameters.filter(p => p.level === 'global').length
       }
     }
   }
@@ -1402,32 +1397,34 @@ export const useCommandStore = defineStore('command', () => {
       }
     }
     
-    enhancedCommands.value.forEach(command => {
-      if (command.parameters) {
-        command.parameters.forEach(param => {
-          stats.total++
-          
-          // 按必要性统计
-          if (param.required === true) {
-            stats.byRequirement.required++
-          } else if (param.conditionalOn) {
-            stats.byRequirement.conditional++
-          } else {
-            stats.byRequirement.optional++
-          }
-          
-          // 按级别统计
-          if (param.level) {
-            stats.byLevel[param.level] = (stats.byLevel[param.level] || 0) + 1
-          }
-          
-          // 按作用域统计
-          if (param.scope) {
-            stats.byScope[param.scope] = (stats.byScope[param.scope] || 0) + 1
-          }
-        })
-      }
-    })
+    if (enhancedCommands.value && Array.isArray(enhancedCommands.value)) {
+      enhancedCommands.value.forEach(command => {
+        if (command && command.parameters && Array.isArray(command.parameters)) {
+          command.parameters.forEach(param => {
+            stats.total++
+            
+            // 按必要性统计
+            if (param.required === true) {
+              stats.byRequirement.required++
+            } else if (param.conditionalOn) {
+              stats.byRequirement.conditional++
+            } else {
+              stats.byRequirement.optional++
+            }
+            
+            // 按级别统计
+            if (param.level) {
+              stats.byLevel[param.level] = (stats.byLevel[param.level] || 0) + 1
+            }
+            
+            // 按作用域统计
+            if (param.scope) {
+              stats.byScope[param.scope] = (stats.byScope[param.scope] || 0) + 1
+            }
+          })
+        }
+      })
+    }
     
     return stats
   })
@@ -1481,6 +1478,35 @@ export const useCommandStore = defineStore('command', () => {
     } else {
       localStorage.setItem('command-handbook-user-data', JSON.stringify(userData))
     }
+  }
+  
+  /**
+   * 迁移命令数据（兼容旧版本）
+   * @param {Array} oldCommands 旧版本命令数据
+   * @returns {Array} 迁移后的命令数据
+   */
+  const migrateCommands = (oldCommands) => {
+    if (!Array.isArray(oldCommands)) {
+      return []
+    }
+    
+    return oldCommands.map(cmd => {
+      // 确保命令有必要的字段
+      return {
+        id: cmd.id || generateId(),
+        name: cmd.name || '未命名命令',
+        command: cmd.command || '',
+        description: cmd.description || '',
+        category: cmd.category || 'all',
+        tags: Array.isArray(cmd.tags) ? cmd.tags : [],
+        parameters: Array.isArray(cmd.parameters) ? cmd.parameters : [],
+        isUserCreated: cmd.isUserCreated || false,
+        createdAt: cmd.createdAt || new Date().toISOString(),
+        updatedAt: cmd.updatedAt || new Date().toISOString(),
+        usageCount: cmd.usageCount || 0,
+        lastUsed: cmd.lastUsed || null
+      }
+    })
   }
   
   /**

@@ -697,6 +697,14 @@ const handleWorkflowClick = () => {
   showWorkflowModal.value = !showWorkflowModal.value
 }
 
+// 滚动处理函数
+const handleScroll = () => {
+  // 处理滚动事件，可以用于虚拟滚动或其他滚动相关功能
+  if (virtualScrollEnabled.value) {
+    handleVirtualScroll()
+  }
+}
+
 // 命令操作处理
 const handleCommandAdd = (command) => {
   showAddModal.value = false
