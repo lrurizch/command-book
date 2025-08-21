@@ -3885,6 +3885,7 @@ watch(() => props.editingCommand, (newCommand) => {
         .parameter-header {
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: var(--el-spacing-sm);
           padding: var(--el-spacing-md);
           background: var(--el-fill-color-lighter);
@@ -3893,11 +3894,11 @@ watch(() => props.editingCommand, (newCommand) => {
           .parameter-name {
             flex: 0 0 200px;
             max-width: 200px;
+            min-width: 120px;
           }
           
           .delete-param-btn {
             flex-shrink: 0;
-            margin-left: auto;
           }
         }
         
