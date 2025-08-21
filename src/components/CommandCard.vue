@@ -5,16 +5,9 @@
     @click="handleCardClick"
     @dblclick.stop="handleCardDoubleClick"
   >
-    <!-- 主要内容区域 -->
+        <!-- 主要内容区域 -->
     <div class="card-content">
-      <!-- 作用 -->
-      <div class="purpose-section">
-        <el-tooltip :content="command.description" placement="top">
-          <span class="command-name">{{ command.name }}</span>
-        </el-tooltip>
-      </div>
-      
-      <!-- 默认完整命令 -->
+      <!-- 常用完整命令 -->
       <div class="command-section">
         <el-tooltip 
           :content="recentCommandText ? `点击复制: ${recentCommandText}` : '双击查看和管理常用完整命令'" 
@@ -29,10 +22,21 @@
         </el-tooltip>
       </div>
       
-      <!-- 分类标签 -->
+      <!-- 功能描述 -->
+      <div class="purpose-section">
+        <el-tooltip :content="command.description" placement="top">
+          <span class="command-name">{{ command.name }}</span>
+        </el-tooltip>
+      </div>
+      
+      <!-- 分类 -->
       <div class="category-section">
         <el-tag type="info" size="small">{{ categoryName }}</el-tag>
-        <div class="tags-container" v-if="command.tags && command.tags.length > 0">
+      </div>
+      
+      <!-- 标签 -->
+      <div class="tags-section" v-if="command.tags && command.tags.length > 0">
+        <div class="tags-container">
           <el-tag
             v-for="tag in displayTags.slice(0, 2)"
             :key="tag"
@@ -84,7 +88,7 @@
                 style="color: var(--el-color-danger)"
               >
                 删除命令
-                </el-dropdown-item>
+              </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -263,33 +267,18 @@ onUnmounted(() => {
   &.is-user-created {
     background: var(--el-color-primary-light-9);
   }
-  }
-  
+}
+
 .card-content {
-    display: flex;
+  display: flex;
   align-items: center;
   gap: 16px;
   padding: 12px 16px;
   min-height: 48px;
 }
 
-.purpose-section {
-  flex: 0 0 200px;
-      min-width: 0;
-      
-      .command-name {
-    font-size: 14px;
-    font-weight: 500;
-        color: var(--el-text-color-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: block;
-  }
-      }
-      
 .command-section {
-  flex: 1;
+  flex: 0 0 300px;
   min-width: 0;
   
   .command-text {
@@ -330,28 +319,47 @@ onUnmounted(() => {
   }
 }
 
+.purpose-section {
+  flex: 0 0 150px;
+  min-width: 0;
+  
+  .command-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--el-text-color-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+  }
+}
+
 .category-section {
-  flex: 0 0 200px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          
+  flex: 0 0 100px;
+  display: flex;
+  align-items: center;
+}
+
+.tags-section {
+  flex: 0 0 150px;
+  display: flex;
+  align-items: center;
+  
   .tags-container {
-            display: flex;
+    display: flex;
     align-items: center;
-            gap: 4px;
-    margin-left: 4px;
+    gap: 4px;
     
     .tag-item {
       font-size: 12px;
-            }
-          }
+    }
+  }
 }
 
 .actions-section {
   flex: 0 0 auto;
-          display: flex;
-          align-items: center;
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 </style> 
