@@ -785,7 +785,6 @@ const onCopyCommand = async (command) => {
     }
 
     await navigator.clipboard.writeText(textToCopy)
-    showCopySuccess()
     toast.success(commandName ? `已复制: ${commandName}` : '命令已复制')
   } catch (error) {
     toast.error('复制失败: ' + error.message)

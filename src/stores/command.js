@@ -1661,6 +1661,11 @@ export const useCommandStore = defineStore('command', () => {
           category: 'git-branch',
           tags: ['git', 'branch', '分支'],
           parameters: [],
+          commonCommands: [
+            { name: '查看所有分支', command: 'git branch -a', isDefault: true, usageCount: 0, lastUsed: null },
+            { name: '查看本地分支', command: 'git branch', isDefault: false, usageCount: 0, lastUsed: null },
+            { name: '查看远程分支', command: 'git branch -r', isDefault: false, usageCount: 0, lastUsed: null }
+          ],
           isUserCreated: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -1676,6 +1681,11 @@ export const useCommandStore = defineStore('command', () => {
           parameters: [
             { name: 'branch', description: '分支名称', required: true, defaultValue: '', commonValues: ['main', 'master', 'develop'] }
           ],
+          commonCommands: [
+            { name: '切换到主分支', command: 'git checkout main', isDefault: true, usageCount: 0, lastUsed: null },
+            { name: '切换到开发分支', command: 'git checkout develop', isDefault: false, usageCount: 0, lastUsed: null },
+            { name: '创建并切换分支', command: 'git checkout -b feature/new-branch', isDefault: false, usageCount: 0, lastUsed: null }
+          ],
           isUserCreated: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -1690,6 +1700,11 @@ export const useCommandStore = defineStore('command', () => {
           tags: ['git', 'push', '推送'],
           parameters: [
             { name: 'branch', description: '分支名称', required: false, defaultValue: 'main', commonValues: ['main', 'master', 'develop'] }
+          ],
+          commonCommands: [
+            { name: '推送到主分支', command: 'git push origin main', isDefault: true, usageCount: 0, lastUsed: null },
+            { name: '推送到开发分支', command: 'git push origin develop', isDefault: false, usageCount: 0, lastUsed: null },
+            { name: '强制推送', command: 'git push origin main --force', isDefault: false, usageCount: 0, lastUsed: null }
           ],
           isUserCreated: false,
           createdAt: new Date().toISOString(),
@@ -1737,6 +1752,11 @@ export const useCommandStore = defineStore('command', () => {
           category: 'npm',
           tags: ['npm', 'install', '依赖'],
           parameters: [],
+          commonCommands: [
+            { name: '安装所有依赖', command: 'npm install', isDefault: true, usageCount: 0, lastUsed: null },
+            { name: '安装并保存依赖', command: 'npm install --save', isDefault: false, usageCount: 0, lastUsed: null },
+            { name: '安装开发依赖', command: 'npm install --save-dev', isDefault: false, usageCount: 0, lastUsed: null }
+          ],
           isUserCreated: false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
