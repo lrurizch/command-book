@@ -184,12 +184,17 @@ const currentDefaultCommand = computed(() => {
   return recentBuild?.finalCommand || props.command?.command || '暂无命令'
 })
 
-// 初始化设置
-watch(() => props.command?.id, (commandId) => {
-  if (commandId) {
-    autoUpdate.value = commandStore.autoUpdateCopyCommand[commandId] !== false
-  }
-}, { immediate: true })
+// 初始化设置（增强安全性：store 未就绪或键不存在时兜底为 true）
+watch(
+  () => props.command?.id,
+  (commandId) => {
+    if (!commandId) return
+    const map = commandStore?.autoUpdateCopyCommand || {}
+    // 未设置时默认开启自动更新
+    autoUpdate.value = map[commandId] !== false
+  },
+  { immediate: true }
+)
 
 // 方法
 const handleAutoUpdateChange = (value) => {
