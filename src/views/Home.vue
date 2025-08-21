@@ -796,7 +796,8 @@ const handleCommandExecute = (command) => {
     selectedCommand.value = command
     showParameterModal.value = true
   } else {
-    onCopyCommand(command)
+    // 移除这里的复制逻辑，避免重复调用
+    // onCopyCommand(command)
   }
 }
 
