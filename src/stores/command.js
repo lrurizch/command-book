@@ -473,6 +473,9 @@ export const useCommandStore = defineStore('command', () => {
   const enhancedCommands = computed(() => {
     // 注意：这个计算属性现在主要用于其他功能（如统计），
     // 不用于分类显示，避免影响切换性能
+    if (!commands.value || !Array.isArray(commands.value)) {
+      return []
+    }
     return commands.value.map(cmd => {
       // 使用缓存避免重复升级相同的命令
       const cacheKey = `${cmd.id}-${cmd.updatedAt || cmd.createdAt}`

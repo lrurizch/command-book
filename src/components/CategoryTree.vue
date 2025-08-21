@@ -760,6 +760,10 @@ const toggleAllCategories = () => {
 
 // 获取分类下的命令数量
 const getCategoryCount = (categoryId) => {
+  if (!commandStore.commands || !Array.isArray(commandStore.commands)) {
+    return 0
+  }
+  
   if (categoryId === 'all') {
     return commandStore.commands.filter(cmd => cmd.category !== 'recycle-bin').length
   }

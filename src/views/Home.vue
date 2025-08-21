@@ -278,8 +278,8 @@
       v-model="showSettings"
     />
 
-    <!-- 常用完整命令模态框 -->
-    <CommonCommandsModal
+    <!-- 常用完整命令模态框 - 暂时使用CopyCommandModal替代 -->
+    <CopyCommandModal
       v-if="commonCommandsCommand"
       v-model:show="showCommonCommandsModal"
       :command="commonCommandsCommand"
@@ -1020,10 +1020,10 @@ watch(() => commandStore.editingCommand, (newCommand) => {
 onMounted(async () => {
   // 调试：检查store状态
   console.log('Home.vue mounted - Store状态检查:', {
-    totalCommands: commandStore.commands.length,
-    filteredCommands: commandStore.filteredCommands.length,
+    totalCommands: commandStore.commands?.length || 0,
+    filteredCommands: commandStore.filteredCommands?.length || 0,
     selectedCategory: commandStore.selectedCategory,
-    globalIndexSize: commandStore.globalCategoryIndex.size,
+    globalIndexSize: commandStore.globalCategoryIndex?.size || 0,
     indexMetadata: commandStore.indexMetadata,
     displaySettings: commandStore.displaySettings
   })
@@ -1032,16 +1032,16 @@ onMounted(async () => {
   keyboardStore.initShortcuts()
   
   // 同步Store中的搜索和标签状态到本地
-  searchQuery.value = commandStore.currentSearchQuery
-  selectedTags.value = [...commandStore.selectedTags]
+  searchQuery.value = commandStore.currentSearchQuery || ''
+  selectedTags.value = [...(commandStore.selectedTags || [])]
   
   // 初始化监听变量
   lastCategory = commandStore.selectedCategory
-  lastQuery = commandStore.currentSearchQuery
-  lastTagsStr = commandStore.selectedTags.join(',')
+  lastQuery = commandStore.currentSearchQuery || ''
+  lastTagsStr = (commandStore.selectedTags || []).join(',')
   
   // 确保命令数据已加载
-  console.log('当前命令数量:', commandStore.commands.length)
+  console.log('当前命令数量:', commandStore.commands?.length || 0)
   
   // 注册全局事件监听器
   window.addEventListener('focus-search', handleFocusSearch)
