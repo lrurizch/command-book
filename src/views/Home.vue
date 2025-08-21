@@ -760,19 +760,21 @@ const onCopyCommand = async (command) => {
     if (typeof command === 'string') {
       // 直接复制命令文本
       textToCopy = command
-    } else if (command.command) {
+    } else if (command && typeof command === 'object') {
       // 从命令对象中获取命令文本
-      textToCopy = commandStore.getDefaultCopyCommand(command.id) || command.command
-      commandName = command.name
+      textToCopy = commandStore.getDefaultCopyCommand(command.id) || command.command || ''
+      commandName = command.name || ''
       
       console.log('复制命令:', commandName, '内容:', textToCopy)
       
       // 更新命令使用统计
-      commandStore.updateCommandStats(command.id)
-      
-      // 如果复制的是常用完整命令，更新常用命令的使用统计
-      if (textToCopy && textToCopy !== command.command) {
-        commandStore.updateCommonCommandUsage(command.id, textToCopy)
+      if (command.id) {
+        commandStore.updateCommandStats(command.id)
+        
+        // 如果复制的是常用完整命令，更新常用命令的使用统计
+        if (textToCopy && textToCopy !== command.command) {
+          commandStore.updateCommonCommandUsage(command.id, textToCopy)
+        }
       }
     } else {
       toast.error('无效的命令')
