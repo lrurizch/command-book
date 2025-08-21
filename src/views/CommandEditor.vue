@@ -189,6 +189,22 @@
                       </label>
                     </div>
                   </div>
+                  
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label class="checkbox-label">
+                        <input
+                          v-model="param.repeatable"
+                          type="checkbox"
+                          class="form-checkbox"
+                        >
+                        可重复项
+                      </label>
+                      <div class="param-help">
+                        勾选后表示此参数可填写一个或多个值
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -331,7 +347,8 @@ const addParameter = (paramName) => {
       name: paramName,
       description: '',
       required: false,
-      defaultValue: ''
+      defaultValue: '',
+      repeatable: false
     })
   }
   
@@ -353,7 +370,8 @@ const addCustomParameter = () => {
     name: '',
     description: '',
     required: false,
-    defaultValue: ''
+    defaultValue: '',
+    repeatable: false
   })
 }
 

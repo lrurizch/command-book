@@ -23,9 +23,47 @@
             <label :for="`param-${param.name}`" class="form-label">
               {{ param.name }}
               <span v-if="param.required" class="required-mark">*</span>
+              <span v-if="param.repeatable" class="repeatable-mark">🔄</span>
             </label>
             
+            <!-- 可重复参数的多值输入 -->
+            <div v-if="param.repeatable" class="repeatable-input-container">
+              <div
+                v-for="(value, index) in getRepeatableValues(param.name)"
+                :key="index"
+                class="repeatable-input-row"
+              >
+                <input
+                  :id="`param-${param.name}-${index}`"
+                  v-model="repeatableValues[param.name][index]"
+                  type="text"
+                  class="form-input input repeatable-input"
+                  :placeholder="param.defaultValue || `请输入${param.name} ${index + 1}`"
+                  :required="param.required && index === 0"
+                  @input="updateRepeatableValues(param.name)"
+                >
+                <button
+                  v-if="getRepeatableValues(param.name).length > 1"
+                  type="button"
+                  class="btn btn-sm btn-danger remove-value-btn"
+                  @click="removeRepeatableValue(param.name, index)"
+                  title="删除此值"
+                >
+                  ✕
+                </button>
+              </div>
+              <button
+                type="button"
+                class="btn btn-sm btn-secondary add-value-btn"
+                @click="addRepeatableValue(param.name)"
+              >
+                + 添加值
+              </button>
+            </div>
+            
+            <!-- 普通参数的单值输入 -->
             <input
+              v-else
               :id="`param-${param.name}`"
               v-model="parameterValues[param.name]"
               type="text"
@@ -37,9 +75,10 @@
             
             <div v-if="param.description" class="param-description">
               {{ param.description }}
+              <span v-if="param.repeatable" class="repeatable-hint">（可填写多个值，用空格分隔）</span>
             </div>
             
-            <div v-if="param.required && !parameterValues[param.name]" class="param-error">
+            <div v-if="param.required && !hasValidValue(param)" class="param-error">
               此参数为必填项
             </div>
           </div>
@@ -78,15 +117,27 @@ const emit = defineEmits(['confirm', 'cancel'])
 
 // 响应式数据
 const parameterValues = ref({})
+const repeatableValues = ref({})
 
 // 计算属性
 const previewCommand = computed(() => {
   let cmd = props.command.command
   
   // 替换参数占位符
-  Object.entries(parameterValues.value).forEach(([key, value]) => {
-    const placeholder = `{{${key}}}`
-    const displayValue = value || `<${key}>`
+  props.command.parameters.forEach(param => {
+    const placeholder = `{{${param.name}}}`
+    let displayValue = ''
+    
+    if (param.repeatable) {
+      // 可重复参数：合并所有非空值
+      const values = repeatableValues.value[param.name] || []
+      const nonEmptyValues = values.filter(v => v && v.trim())
+      displayValue = nonEmptyValues.length > 0 ? nonEmptyValues.join(' ') : `<${param.name}>`
+    } else {
+      // 普通参数
+      displayValue = parameterValues.value[param.name] || `<${param.name}>`
+    }
+    
     cmd = cmd.replace(new RegExp(placeholder, 'g'), displayValue)
   })
   
@@ -97,7 +148,7 @@ const isFormValid = computed(() => {
   // 检查所有必填参数是否已填写
   return props.command.parameters.every(param => {
     if (param.required) {
-      return parameterValues.value[param.name] && parameterValues.value[param.name].trim()
+      return hasValidValue(param)
     }
     return true
   })
@@ -106,23 +157,75 @@ const isFormValid = computed(() => {
 // 方法
 const initializeParameters = () => {
   const values = {}
+  const repeatable = {}
+  
   props.command.parameters.forEach(param => {
-    values[param.name] = param.defaultValue || ''
+    if (param.repeatable) {
+      // 可重复参数：初始化为包含一个空值的数组
+      repeatable[param.name] = [param.defaultValue || '']
+    } else {
+      // 普通参数
+      values[param.name] = param.defaultValue || ''
+    }
   })
+  
   parameterValues.value = values
+  repeatableValues.value = repeatable
 }
 
 const updatePreview = () => {
   // 触发预览更新（通过computed属性自动处理）
 }
 
+// 可重复参数相关方法
+const getRepeatableValues = (paramName) => {
+  return repeatableValues.value[paramName] || ['']
+}
+
+const addRepeatableValue = (paramName) => {
+  if (!repeatableValues.value[paramName]) {
+    repeatableValues.value[paramName] = ['']
+  }
+  repeatableValues.value[paramName].push('')
+}
+
+const removeRepeatableValue = (paramName, index) => {
+  if (repeatableValues.value[paramName] && repeatableValues.value[paramName].length > 1) {
+    repeatableValues.value[paramName].splice(index, 1)
+  }
+}
+
+const updateRepeatableValues = (paramName) => {
+  // 触发响应式更新
+  repeatableValues.value = { ...repeatableValues.value }
+}
+
+const hasValidValue = (param) => {
+  if (param.repeatable) {
+    const values = repeatableValues.value[param.name] || []
+    return values.some(v => v && v.trim())
+  } else {
+    return parameterValues.value[param.name] && parameterValues.value[param.name].trim()
+  }
+}
+
 const handleSubmit = () => {
   if (isFormValid.value) {
-    // 过滤空值参数
+    // 合并普通参数和可重复参数
     const finalParams = {}
+    
+    // 处理普通参数
     Object.entries(parameterValues.value).forEach(([key, value]) => {
       if (value && value.trim()) {
         finalParams[key] = value.trim()
+      }
+    })
+    
+    // 处理可重复参数
+    Object.entries(repeatableValues.value).forEach(([key, values]) => {
+      const nonEmptyValues = values.filter(v => v && v.trim())
+      if (nonEmptyValues.length > 0) {
+        finalParams[key] = nonEmptyValues.join(' ')
       }
     })
     
@@ -281,6 +384,43 @@ onUnmounted(() => {
       margin-top: var(--spacing-xs);
       font-size: var(--font-size-xs);
       color: var(--danger-color);
+    }
+    
+    .repeatable-mark {
+      color: var(--primary-color);
+      margin-left: var(--spacing-xs);
+      font-size: var(--font-size-sm);
+    }
+    
+    .repeatable-hint {
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    
+    .repeatable-input-container {
+      .repeatable-input-row {
+        display: flex;
+        gap: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+        align-items: center;
+        
+        .repeatable-input {
+          flex: 1;
+        }
+        
+        .remove-value-btn {
+          min-width: 32px;
+          height: 32px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+      
+      .add-value-btn {
+        margin-top: var(--spacing-xs);
+      }
     }
   }
 }

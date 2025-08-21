@@ -574,7 +574,20 @@
                      inactive-text="可选"
                      active-color="#409eff"
                    />
-            </div>
+                 </div>
+                 
+                 <div class="form-group">
+                   <label class="form-label">可重复项</label>
+                   <el-switch
+                     v-model="param.repeatable"
+                     active-text="可重复"
+                     inactive-text="单值"
+                     active-color="#67c23a"
+                   />
+                   <div class="param-help">
+                     勾选后表示此参数可填写一个或多个值
+                   </div>
+                 </div>
           </div>
             </div>
             
@@ -1462,7 +1475,8 @@ const addParameter = (paramName) => {
       description: '',
       required: false,
       defaultValue: '',
-      separator: ' '  // 默认为空格
+      separator: ' ',  // 默认为空格
+      repeatable: false
     })
   }
   
@@ -1484,7 +1498,8 @@ const addCustomParameter = () => {
     name: '',               // 参数名称
     commonValues: [],       // 常用参数值数组
     defaultValueIndex: -1,  // 默认值索引（-1表示无默认值）
-    required: false         // 是否必带（默认为可选）
+    required: false,        // 是否必带（默认为可选）
+    repeatable: false       // 是否可重复
   })
 }
 
